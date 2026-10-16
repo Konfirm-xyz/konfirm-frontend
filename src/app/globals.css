@@ -683,6 +683,9 @@ a.txlink {
   margin-bottom: 2px;
 }
 .admin-sidebar-nav a {
+  display: flex;
+  align-items: center;
+  min-height: 48px;
   padding: 10px 12px;
   border-radius: 8px;
   color: var(--text-lo);
