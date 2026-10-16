@@ -183,6 +183,10 @@ select:focus {
 
 button {
   width: 100%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  min-height: 48px;
   padding: 14px;
   border-radius: 999px;
   border: none;
