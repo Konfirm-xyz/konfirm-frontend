@@ -25,6 +25,7 @@ export default function AdminUsersPage() {
   const [users, setUsers] = useState<UserRow[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(false);
+  const [search, setSearch] = useState("");
 
   useEffect(() => {
     (async () => {
@@ -45,6 +46,20 @@ export default function AdminUsersPage() {
         There&apos;s no separate user-account system — this is every unique address that has ever paid through the
         platform, derived from payment history, not a signed-up account.
       </p>
+
+      <div className="admin-inline-form">
+        <div className="field">
+          <label htmlFor="users-search">Search by address</label>
+          <input
+            id="users-search"
+            type="search"
+            placeholder="Stellar address…"
+            value={search}
+            onChange={(e) => setSearch(e.target.value)}
+            style={{ minWidth: 240 }}
+          />
+        </div>
+      </div>
 
       {loading ? (
         <div className="empty">Loading…</div>
@@ -67,7 +82,10 @@ export default function AdminUsersPage() {
                 </tr>
               </thead>
               <tbody>
-                {users.map((u) => (
+                {users.filter((u) => {
+                  if (!search.trim()) return true;
+                  return u.payer_address.toLowerCase().includes(search.trim().toLowerCase());
+                }).map((u) => (
                   <tr key={u.payer_address}>
                     <td className="mono">{shortAddress(u.payer_address)}</td>
                     <td className="mono">{u.payment_count}</td>

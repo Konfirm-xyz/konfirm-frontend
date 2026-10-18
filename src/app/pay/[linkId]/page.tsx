@@ -336,6 +336,7 @@ export default function CheckoutPage({ params }: { params: Promise<{ linkId: str
                     href={qrUri}
                     target="_blank"
                     rel="noopener noreferrer"
+                    aria-label="Open this payment request in your Stellar wallet"
                     dangerouslySetInnerHTML={{ __html: qrSvg }}
                   />
                   <div className="qr-hint">Lobstr, Vibrant, Beans, xBull, and others</div>

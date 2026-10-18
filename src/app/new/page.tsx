@@ -118,11 +118,13 @@ export default function NewPaymentPage() {
             <div className="amount-row">
               <span className={`dollar${currency === "XLM" ? " hidden" : ""}`}>{CURRENCY_SYMBOLS[currency]}</span>
               <input
+                id="amount-input"
                 className="amount-input"
                 type="text"
                 inputMode="decimal"
                 placeholder="0.00"
                 autoFocus
+                aria-label="Payment amount"
                 value={amount}
                 onChange={(e) => setAmount(e.target.value)}
               />

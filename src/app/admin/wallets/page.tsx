@@ -22,6 +22,7 @@ export default function AdminWalletsPage() {
   const [wallets, setWallets] = useState<WalletRow[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(false);
+  const [search, setSearch] = useState("");
 
   useEffect(() => {
     (async () => {
@@ -44,6 +45,20 @@ export default function AdminWalletsPage() {
         — an address showing both &quot;Payer&quot; and &quot;Blocked&quot; is worth a second look.
       </p>
 
+      <div className="admin-inline-form">
+        <div className="field">
+          <label htmlFor="wallets-search">Search by address</label>
+          <input
+            id="wallets-search"
+            type="search"
+            placeholder="Stellar address…"
+            value={search}
+            onChange={(e) => setSearch(e.target.value)}
+            style={{ minWidth: 240 }}
+          />
+        </div>
+      </div>
+
       {loading ? (
         <div className="empty">Loading…</div>
       ) : error ? (
@@ -61,7 +76,10 @@ export default function AdminWalletsPage() {
                 </tr>
               </thead>
               <tbody>
-                {wallets.map((w) => (
+                {wallets.filter((w) => {
+                  if (!search.trim()) return true;
+                  return w.address.toLowerCase().includes(search.trim().toLowerCase());
+                }).map((w) => (
                   <tr key={w.address}>
                     <td className="mono">{shortAddress(w.address)}</td>
                     <td>

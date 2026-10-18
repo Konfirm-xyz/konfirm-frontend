@@ -47,6 +47,7 @@ function shortAddress(address: string): string {
 export default function AdminPaymentsPage() {
   const [payments, setPayments] = useState<Payment[]>([]);
   const [filter, setFilter] = useState<"" | PaymentStatus>("");
+  const [search, setSearch] = useState("");
   const [loading, setLoading] = useState(true);
   const [pendingId, setPendingId] = useState<string | null>(null);
   const [error, setError] = useState("");
@@ -133,6 +134,17 @@ export default function AdminPaymentsPage() {
             ))}
           </select>
         </div>
+        <div className="field">
+          <label htmlFor="payments-search">Search</label>
+          <input
+            id="payments-search"
+            type="search"
+            placeholder="Merchant email or name, payer address, tx hash…"
+            value={search}
+            onChange={(e) => setSearch(e.target.value)}
+            style={{ minWidth: 280 }}
+          />
+        </div>
       </div>
 
       <div className="admin-section">
@@ -156,7 +168,16 @@ export default function AdminPaymentsPage() {
                 </tr>
               </thead>
               <tbody>
-                {payments.map((p) => (
+                {payments.filter((p) => {
+                  if (!search.trim()) return true;
+                  const q = search.trim().toLowerCase();
+                  return (
+                    p.merchant_email.toLowerCase().includes(q) ||
+                    p.merchant_name.toLowerCase().includes(q) ||
+                    p.payer_address.toLowerCase().includes(q) ||
+                    p.tx_hash.toLowerCase().includes(q)
+                  );
+                }).map((p) => (
                   <tr key={p.id}>
                     <td>
                       <div style={{ color: "var(--text-hi)" }}>{p.merchant_name}</div>

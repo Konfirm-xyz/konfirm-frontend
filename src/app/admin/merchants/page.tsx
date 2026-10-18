@@ -32,6 +32,7 @@ export default function AdminMerchantsPage() {
   const [loadError, setLoadError] = useState(false);
   const [pendingId, setPendingId] = useState<string | null>(null);
   const [error, setError] = useState("");
+  const [search, setSearch] = useState("");
 
   async function load() {
     setLoadError(false);
@@ -157,6 +158,20 @@ export default function AdminMerchantsPage() {
     <div>
       <h1>Merchants</h1>
 
+      <div className="admin-inline-form">
+        <div className="field">
+          <label htmlFor="merchants-search">Search</label>
+          <input
+            id="merchants-search"
+            type="search"
+            placeholder="Email or name…"
+            value={search}
+            onChange={(e) => setSearch(e.target.value)}
+            style={{ minWidth: 240 }}
+          />
+        </div>
+      </div>
+
       <div className="admin-section">
         {loading ? (
           <div className="empty">Loading…</div>
@@ -178,7 +193,11 @@ export default function AdminMerchantsPage() {
                 </tr>
               </thead>
               <tbody>
-                {merchants.map((m) => (
+                {merchants.filter((m) => {
+                  if (!search.trim()) return true;
+                  const q = search.trim().toLowerCase();
+                  return m.email.toLowerCase().includes(q) || m.name.toLowerCase().includes(q);
+                }).map((m) => (
                   <tr key={m.id}>
                     <td>
                       <div style={{ color: "var(--text-hi)" }}>{m.name}</div>
