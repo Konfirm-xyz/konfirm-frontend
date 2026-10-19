@@ -19,16 +19,27 @@ export default function AdminBlockchainPage() {
   const [status, setStatus] = useState<BlockchainStatus | null>(null);
   const [loading, setLoading] = useState(true);
 
+  async function load() {
+    setLoading(true);
+    const result = await apiFetch<BlockchainStatus>("/admin/blockchain/status");
+    if (result.ok) setStatus(result.data);
+    setLoading(false);
+  }
+
   useEffect(() => {
-    (async () => {
-      const result = await apiFetch<BlockchainStatus>("/admin/blockchain/status");
-      if (result.ok) setStatus(result.data);
-      setLoading(false);
-    })();
+    load();
   }, []);
 
   if (loading) return <div className="empty">Loading…</div>;
-  if (!status) return <div className="empty">Could not load blockchain status.</div>;
+  if (!status)
+    return (
+      <div className="empty">
+        Could not load blockchain status.{" "}
+        <button type="button" onClick={load}>
+          Try again
+        </button>
+      </div>
+    );
 
   return (
     <div>
