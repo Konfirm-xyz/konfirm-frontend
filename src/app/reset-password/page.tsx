@@ -3,6 +3,7 @@
 import { Suspense, useState, type FormEvent } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
 import Link from "next/link";
+import PasswordInput from "@/components/PasswordInput";
 import { API_BASE } from "@/lib/api";
 
 function ResetPasswordForm() {
@@ -54,9 +55,8 @@ function ResetPasswordForm() {
     <form onSubmit={handleSubmit}>
       <div className="field">
         <label htmlFor="password">New password</label>
-        <input
+        <PasswordInput
           id="password"
-          type="password"
           autoComplete="new-password"
           minLength={8}
           maxLength={72}
@@ -67,9 +67,8 @@ function ResetPasswordForm() {
       </div>
       <div className="field">
         <label htmlFor="confirm">Confirm new password</label>
-        <input
+        <PasswordInput
           id="confirm"
-          type="password"
           autoComplete="new-password"
           minLength={8}
           maxLength={72}
