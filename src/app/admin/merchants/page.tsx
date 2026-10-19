@@ -215,7 +215,7 @@ export default function AdminMerchantsPage() {
                         ))}
                       </select>
                     </td>
-                    <td className="mono">{shortAddress(m.stellar_base_address)}</td>
+                    <td className="mono" title={m.stellar_base_address ?? undefined}>{shortAddress(m.stellar_base_address)}</td>
                     <td>{formatDate(m.created_at)}</td>
                     <td>
                       <button type="button" disabled={pendingId === m.id} onClick={() => toggleStatus(m)}>

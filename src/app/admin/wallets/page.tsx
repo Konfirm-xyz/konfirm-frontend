@@ -63,7 +63,7 @@ export default function AdminWalletsPage() {
               <tbody>
                 {wallets.map((w) => (
                   <tr key={w.address}>
-                    <td className="mono">{shortAddress(w.address)}</td>
+                    <td className="mono" title={w.address}>{shortAddress(w.address)}</td>
                     <td>
                       {w.roles.map((role) => (
                         <span key={role} className={`status-pill ${role === "blocked" ? "disputed" : "paid"}`} style={{ marginRight: 6 }}>

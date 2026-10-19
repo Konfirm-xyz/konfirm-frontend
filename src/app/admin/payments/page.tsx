@@ -168,7 +168,7 @@ export default function AdminPaymentsPage() {
                       <div className="mono">{p.merchant_email}</div>
                     </td>
                     <td className="mono">{formatAmount(p.amount_usdc, p.asset_code)}</td>
-                    <td className="mono">{shortAddress(p.payer_address)}</td>
+                    <td className="mono" title={p.payer_address}>{shortAddress(p.payer_address)}</td>
                     <td>
                       <span className={`status-pill ${p.status}`}>{p.status}</span>
                       {p.flag_reason && (

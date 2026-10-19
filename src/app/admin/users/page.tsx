@@ -69,7 +69,7 @@ export default function AdminUsersPage() {
               <tbody>
                 {users.map((u) => (
                   <tr key={u.payer_address}>
-                    <td className="mono">{shortAddress(u.payer_address)}</td>
+                    <td className="mono" title={u.payer_address}>{shortAddress(u.payer_address)}</td>
                     <td className="mono">{u.payment_count}</td>
                     <td className="mono">{formatUsdc(u.total_volume_usdc)}</td>
                     <td className="mono">

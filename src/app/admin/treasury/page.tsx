@@ -107,7 +107,7 @@ export default function AdminTreasuryPage() {
             <tbody>
               {status.signers.map((s) => (
                 <tr key={s}>
-                  <td className="mono">{shortAddress(s)}</td>
+                  <td className="mono" title={s}>{shortAddress(s)}</td>
                 </tr>
               ))}
             </tbody>
