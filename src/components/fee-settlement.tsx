@@ -34,6 +34,15 @@ export default function FeeSettlement({ address }: { address: string }) {
   const [totals, setTotals] = useState<OwedTotal[] | null>(null);
   const [busy, setBusy] = useState(false);
   const [status, setStatus] = useState<{ text: string; error: boolean } | null>(null);
+  const [freighterAvailable, setFreighterAvailable] = useState<boolean | null>(null);
+
+  useEffect(() => {
+    freighterApi.isConnected().then((res) => {
+      setFreighterAvailable(!res.error && res.isConnected !== false);
+    }).catch(() => {
+      setFreighterAvailable(false);
+    });
+  }, []);
 
   // Always-fresh reads: this is a balance check (fees owed), so a
   // cached/stale response could understate or overstate what's actually
@@ -110,10 +119,19 @@ export default function FeeSettlement({ address }: { address: string }) {
           </div>
         ))}
       </div>
-      <button type="button" className="primary" disabled={busy} onClick={settle}>
-        Settle fees
-      </button>
-      {status && <div className={`status${status.error ? " error" : ""}`}>{status.text}</div>}
+      {freighterAvailable === false ? (
+        <div className="status error">
+          Fee settlement requires the Freighter browser extension. Open this page in Chrome or Firefox on desktop with{" "}
+          <a href="https://freighter.app" target="_blank" rel="noopener noreferrer">Freighter installed</a>.
+        </div>
+      ) : (
+        <>
+          <button type="button" className="primary" disabled={busy} onClick={settle}>
+            Settle fees
+          </button>
+          {status && <div className={`status${status.error ? " error" : ""}`}>{status.text}</div>}
+        </>
+      )}
     </div>
   );
 }

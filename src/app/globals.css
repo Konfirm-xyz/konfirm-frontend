@@ -998,3 +998,66 @@ a.txlink {
   font-size: 14px;
   color: var(--text-hi);
 }
+
+/* ── Responsive breakpoints ────────────────────────────────────────────────── */
+
+/* Tablet: ≤ 768 px */
+@media (max-width: 768px) {
+  .admin-shell {
+    flex-direction: column;
+  }
+  .admin-sidebar {
+    width: 100%;
+    border-right: none;
+    border-bottom: 1px solid var(--border);
+    padding: 16px 20px;
+  }
+  .admin-sidebar nav {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 4px;
+  }
+  .admin-main {
+    padding: 20px 16px;
+  }
+  .admin-main h1 {
+    font-size: 22px;
+  }
+  .stat-grid {
+    grid-template-columns: repeat(2, 1fr);
+  }
+}
+
+/* Phone: ≤ 480 px */
+@media (max-width: 480px) {
+  .page-center {
+    padding: 16px;
+    align-items: flex-start;
+    padding-top: 32px;
+  }
+  .card {
+    padding: 24px 16px;
+    border-radius: 12px;
+  }
+  .amount-display {
+    font-size: 36px;
+  }
+  .primary,
+  .secondary {
+    font-size: 15px;
+    padding: 14px 16px;
+    min-height: 48px; /* touch-target */
+  }
+  .stat-grid {
+    grid-template-columns: 1fr;
+  }
+  .admin-inline-form {
+    flex-direction: column;
+  }
+  .admin-inline-form button {
+    width: 100%;
+  }
+  table {
+    font-size: 13px;
+  }
+}
