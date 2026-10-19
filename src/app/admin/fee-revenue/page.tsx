@@ -61,7 +61,7 @@ export default function AdminFeeRevenuePage() {
               </div>
               <div className="stat-card">
                 <div className="stat-label">Paid transactions</div>
-                <div className="stat-value">{summary?.payment_count ?? "—"}</div>
+                <div className="stat-value">{summary ? summary.payment_count.toLocaleString() : "—"}</div>
               </div>
             </div>
           </div>
