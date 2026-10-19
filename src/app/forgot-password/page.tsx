@@ -57,7 +57,7 @@ export default function ForgotPasswordPage() {
               />
             </div>
             <button type="submit" className="primary" disabled={submitting}>
-              Send reset link
+              {submitting ? "Sending…" : "Send reset link"}
             </button>
             <div className={`status${status ? " error" : ""}`}>{status}</div>
           </form>

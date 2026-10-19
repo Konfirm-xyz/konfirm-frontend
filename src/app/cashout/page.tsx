@@ -249,7 +249,7 @@ export default function CashoutPage() {
             <div className="limit-note">This test partner accepts between 1–10 units per cash-out.</div>
 
             <button type="button" className="primary" disabled={starting} onClick={handleStart}>
-              Connect wallet &amp; start cash-out
+              {starting ? "Starting…" : "Connect wallet & start cash-out"}
             </button>
             <div className={`status${status || missingAddressStatus ? " error" : ""}`}>{status || missingAddressStatus}</div>
           </div>
