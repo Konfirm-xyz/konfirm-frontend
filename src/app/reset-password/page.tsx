@@ -59,6 +59,7 @@ function ResetPasswordForm() {
           type="password"
           autoComplete="new-password"
           minLength={8}
+          maxLength={72}
           required
           value={password}
           onChange={(e) => setPassword(e.target.value)}
@@ -71,6 +72,7 @@ function ResetPasswordForm() {
           type="password"
           autoComplete="new-password"
           minLength={8}
+          maxLength={72}
           required
           value={confirm}
           onChange={(e) => setConfirm(e.target.value)}

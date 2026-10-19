@@ -94,11 +94,12 @@ function SignupForm() {
               type="password"
               autoComplete="new-password"
               minLength={8}
+              maxLength={72}
               required
               value={password}
               onChange={(e) => setPassword(e.target.value)}
             />
-            <div className="hint">At least 8 characters.</div>
+            <div className="hint">At least 8 characters (72 max).</div>
           </div>
           <div className="field">
             <label htmlFor="address">Your Stellar payout address</label>
