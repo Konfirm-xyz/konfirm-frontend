@@ -202,7 +202,9 @@ button.primary {
   margin-bottom: 10px;
 }
 button.primary:disabled {
-  opacity: 0.5;
+  background: var(--border);
+  color: var(--text-lo);
+  opacity: 1;
   cursor: not-allowed;
 }
 
