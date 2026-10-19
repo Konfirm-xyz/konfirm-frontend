@@ -113,7 +113,13 @@ export default function AdminCompliancePage() {
         </div>
         <div className="field">
           <label htmlFor="reason">Reason (optional)</label>
-          <input id="reason" type="text" value={reason} onChange={(e) => setReason(e.target.value)} />
+          <input
+            id="reason"
+            type="text"
+            maxLength={500}
+            value={reason}
+            onChange={(e) => setReason(e.target.value)}
+          />
         </div>
         <button type="submit" className="primary" disabled={submitting}>
           Block
