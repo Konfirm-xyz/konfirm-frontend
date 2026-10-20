@@ -13,6 +13,12 @@ type Currency = "XLM" | "USDC" | "EURC";
 
 const CURRENCY_SYMBOLS: Record<Currency, string> = { XLM: "", USDC: "$", EURC: "€" };
 
+/** Maximum decimal places the backend accepts per currency.
+ *  XLM amounts are stored as NUMERIC(18,7) and validated to 7dp;
+ *  USDC and EURC are cent-precision assets so 2dp is correct for them.
+ */
+const CURRENCY_DECIMALS: Record<Currency, number> = { XLM: 7, USDC: 2, EURC: 2 };
+
 interface Merchant {
   name: string;
 }
@@ -46,7 +52,7 @@ export default function NewPaymentPage() {
     setSubmitting(true);
     try {
       const result = await apiPost<{ id: string }>("/links", {
-        amount_usdc: amountNum.toFixed(2),
+        amount_usdc: amountNum.toFixed(CURRENCY_DECIMALS[currency]),
         currency,
         description: description.trim() || undefined,
       });
