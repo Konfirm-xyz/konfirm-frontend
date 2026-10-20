@@ -28,6 +28,7 @@ function shortAddress(address: string | null): string {
 
 export default function AdminMerchantsPage() {
   const [merchants, setMerchants] = useState<Merchant[]>([]);
+  const [search, setSearch] = useState("");
   const [loading, setLoading] = useState(true);
   const [loadError, setLoadError] = useState(false);
   const [pendingId, setPendingId] = useState<string | null>(null);
@@ -153,17 +154,40 @@ export default function AdminMerchantsPage() {
     }
   }
 
+  const q = search.trim().toLowerCase();
+  const visible = q
+    ? merchants.filter(
+        (m) =>
+          m.name.toLowerCase().includes(q) ||
+          m.email.toLowerCase().includes(q) ||
+          (m.stellar_base_address ?? "").toLowerCase().includes(q),
+      )
+    : merchants;
+
   return (
     <div>
       <h1>Merchants</h1>
+
+      <div className="admin-inline-form">
+        <div className="field">
+          <label htmlFor="merchants-search">Search</label>
+          <input
+            id="merchants-search"
+            type="search"
+            placeholder="Name, email, or Stellar address…"
+            value={search}
+            onChange={(e) => setSearch(e.target.value)}
+          />
+        </div>
+      </div>
 
       <div className="admin-section">
         {loading ? (
           <div className="empty">Loading…</div>
         ) : loadError ? (
           <div className="empty">Could not load merchants — try again.</div>
-        ) : merchants.length === 0 ? (
-          <div className="empty">No merchants yet.</div>
+        ) : visible.length === 0 ? (
+          <div className="empty">{merchants.length === 0 ? "No merchants yet." : "No merchants match this search."}</div>
         ) : (
           <div className="admin-table-wrap">
             <table className="admin-table">
@@ -178,7 +202,7 @@ export default function AdminMerchantsPage() {
                 </tr>
               </thead>
               <tbody>
-                {merchants.map((m) => (
+                {visible.map((m) => (
                   <tr key={m.id}>
                     <td>
                       <div style={{ color: "var(--text-hi)" }}>{m.name}</div>

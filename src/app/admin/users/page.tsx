@@ -23,6 +23,7 @@ function shortAddress(address: string): string {
 
 export default function AdminUsersPage() {
   const [users, setUsers] = useState<UserRow[]>([]);
+  const [search, setSearch] = useState("");
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(false);
 
@@ -38,6 +39,9 @@ export default function AdminUsersPage() {
     })();
   }, []);
 
+  const q = search.trim().toLowerCase();
+  const visible = q ? users.filter((u) => u.payer_address.toLowerCase().includes(q)) : users;
+
   return (
     <div>
       <h1>Users</h1>
@@ -46,12 +50,25 @@ export default function AdminUsersPage() {
         platform, derived from payment history, not a signed-up account.
       </p>
 
+      <div className="admin-inline-form">
+        <div className="field">
+          <label htmlFor="users-search">Search by address</label>
+          <input
+            id="users-search"
+            type="search"
+            placeholder="Stellar payer address…"
+            value={search}
+            onChange={(e) => setSearch(e.target.value)}
+          />
+        </div>
+      </div>
+
       {loading ? (
         <div className="empty">Loading…</div>
       ) : error ? (
         <div className="empty">Could not load users — try again.</div>
-      ) : users.length === 0 ? (
-        <div className="empty">No payer activity yet.</div>
+      ) : visible.length === 0 ? (
+        <div className="empty">{users.length === 0 ? "No payer activity yet." : "No users match this search."}</div>
       ) : (
         <div className="admin-section">
           <div className="admin-table-wrap">
@@ -67,7 +84,7 @@ export default function AdminUsersPage() {
                 </tr>
               </thead>
               <tbody>
-                {users.map((u) => (
+                {visible.map((u) => (
                   <tr key={u.payer_address}>
                     <td className="mono">{shortAddress(u.payer_address)}</td>
                     <td className="mono">{u.payment_count}</td>

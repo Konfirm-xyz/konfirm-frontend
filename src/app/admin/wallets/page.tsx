@@ -20,6 +20,7 @@ const ROLE_LABELS: Record<string, string> = {
 
 export default function AdminWalletsPage() {
   const [wallets, setWallets] = useState<WalletRow[]>([]);
+  const [search, setSearch] = useState("");
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(false);
 
@@ -36,6 +37,9 @@ export default function AdminWalletsPage() {
     })();
   }, []);
 
+  const q = search.trim().toLowerCase();
+  const visible = q ? wallets.filter((w) => w.address.toLowerCase().includes(q)) : wallets;
+
   return (
     <div>
       <h1>Wallets</h1>
@@ -44,12 +48,25 @@ export default function AdminWalletsPage() {
         — an address showing both &quot;Payer&quot; and &quot;Blocked&quot; is worth a second look.
       </p>
 
+      <div className="admin-inline-form">
+        <div className="field">
+          <label htmlFor="wallets-search">Search by address</label>
+          <input
+            id="wallets-search"
+            type="search"
+            placeholder="Stellar address…"
+            value={search}
+            onChange={(e) => setSearch(e.target.value)}
+          />
+        </div>
+      </div>
+
       {loading ? (
         <div className="empty">Loading…</div>
       ) : error ? (
         <div className="empty">Could not load wallets — try again.</div>
-      ) : wallets.length === 0 ? (
-        <div className="empty">No addresses seen yet.</div>
+      ) : visible.length === 0 ? (
+        <div className="empty">{wallets.length === 0 ? "No addresses seen yet." : "No wallets match this search."}</div>
       ) : (
         <div className="admin-section">
           <div className="admin-table-wrap">
@@ -61,7 +78,7 @@ export default function AdminWalletsPage() {
                 </tr>
               </thead>
               <tbody>
-                {wallets.map((w) => (
+                {visible.map((w) => (
                   <tr key={w.address}>
                     <td className="mono">{shortAddress(w.address)}</td>
                     <td>
