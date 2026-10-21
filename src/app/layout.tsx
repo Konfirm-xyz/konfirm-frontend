@@ -1,5 +1,6 @@
 import type { Metadata } from "next";
 import "./globals.css";
+import RouteAnnouncer from "./RouteAnnouncer";
 
 export const metadata: Metadata = {
   metadataBase: new URL(process.env.NEXT_PUBLIC_BASE_URL ?? "https://konfirm.xyz"),
@@ -14,6 +15,7 @@ export default function RootLayout({ children }: LayoutProps<"/">) {
   return (
     <html lang="en">
       <body>
+        <RouteAnnouncer />
         <main>{children}</main>
       </body>
     </html>

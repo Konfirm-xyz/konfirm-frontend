@@ -1,7 +1,9 @@
 "use client";
+import LoadingSpinner from "@/components/LoadingSpinner";
 
 import { useEffect, useState } from "react";
-import { apiFetch } from "@/lib/api";
+import { API_BASE } from "@/lib/api";
+import { formatAmount } from "@/lib/format";
 
 interface UserRow {
   payer_address: string;
@@ -13,30 +15,49 @@ interface UserRow {
   disputed_count: string;
 }
 
-function formatUsdc(amount: string): string {
-  return `$${Number(amount).toFixed(2)}`;
+function formatDate(iso: string): string {
+  return new Date(iso).toLocaleString();
 }
 
 function shortAddress(address: string): string {
   return `${address.slice(0, 4)}…${address.slice(-4)}`;
 }
 
+const PAGE_SIZE = 50;
+
 export default function AdminUsersPage() {
   const [users, setUsers] = useState<UserRow[]>([]);
   const [loading, setLoading] = useState(true);
-  const [error, setError] = useState(false);
+  const [loadingMore, setLoadingMore] = useState(false);
+  const [offset, setOffset] = useState(0);
+  const [hasMore, setHasMore] = useState(false);
 
   useEffect(() => {
     (async () => {
-      const data = await apiFetch<UserRow[]>("/admin/users");
-      if (data) {
-        setUsers(data);
-      } else {
-        setError(true);
+      const res = await fetch(`${API_BASE}/admin/users?limit=${PAGE_SIZE}&offset=0`, { credentials: "include" });
+      if (res.ok) {
+        const rows: UserRow[] = await res.json();
+        setUsers(rows);
+        setHasMore(rows.length === PAGE_SIZE);
       }
       setLoading(false);
     })();
   }, []);
+
+  async function loadMore() {
+    setLoadingMore(true);
+    const nextOffset = offset + PAGE_SIZE;
+    const res = await fetch(`${API_BASE}/admin/users?limit=${PAGE_SIZE}&offset=${nextOffset}`, {
+      credentials: "include",
+    });
+    if (res.ok) {
+      const rows: UserRow[] = await res.json();
+      setUsers((prev) => [...prev, ...rows]);
+      setOffset(nextOffset);
+      setHasMore(rows.length === PAGE_SIZE);
+    }
+    setLoadingMore(false);
+  }
 
   return (
     <div>
@@ -47,7 +68,7 @@ export default function AdminUsersPage() {
       </p>
 
       {loading ? (
-        <div className="empty">Loading…</div>
+        <LoadingSpinner />
       ) : error ? (
         <div className="empty">Could not load users — try again.</div>
       ) : users.length === 0 ? (
@@ -71,7 +92,7 @@ export default function AdminUsersPage() {
                   <tr key={u.payer_address}>
                     <td className="mono">{shortAddress(u.payer_address)}</td>
                     <td className="mono">{u.payment_count}</td>
-                    <td className="mono">{formatUsdc(u.total_volume_usdc)}</td>
+                    <td className="mono">{formatAmount(u.total_volume_usdc, "USDC")}</td>
                     <td className="mono">
                       {u.refunded_count} / {u.disputed_count}
                     </td>
@@ -81,6 +102,16 @@ export default function AdminUsersPage() {
                 ))}
               </tbody>
             </table>
+          </div>
+          <div className="admin-pagination">
+            <span className="hint">
+              Showing {users.length} of {hasMore ? `${users.length}+` : users.length}
+            </span>
+            {hasMore && (
+              <button type="button" className="btn btn-secondary" onClick={loadMore} disabled={loadingMore}>
+                {loadingMore ? "Loading…" : "Load more"}
+              </button>
+            )}
           </div>
         </div>
       )}

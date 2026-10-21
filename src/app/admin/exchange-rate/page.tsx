@@ -1,4 +1,5 @@
 "use client";
+import LoadingSpinner from "@/components/LoadingSpinner";
 
 import { useEffect, useState } from "react";
 import { apiFetch } from "@/lib/api";
@@ -64,7 +65,7 @@ export default function AdminExchangeRatePage() {
       </p>
 
       {loading ? (
-        <div className="empty">Loading…</div>
+        <LoadingSpinner />
       ) : (
         <>
           <div className="admin-section">

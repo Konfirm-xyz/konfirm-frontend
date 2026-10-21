@@ -48,7 +48,7 @@ export default function AdminLoginPage() {
             <input
               id="email"
               type="email"
-              autoComplete="email"
+              autoComplete="username"
               required
               value={email}
               onChange={(e) => setEmail(e.target.value)}

@@ -44,7 +44,13 @@ export async function apiFetch<T = unknown>(path: string, init: RequestInit = {}
   const isJsonBody = typeof body === "string" || (body !== undefined && !(body instanceof FormData));
   const res = await fetch(`${API_BASE}${path}`, {
     credentials: credentials ?? "include",
-    headers: isJsonBody ? { "Content-Type": "application/json", ...headers } : headers,
+    headers: isJsonBody
+      ? (() => {
+          const h = new Headers(headers as HeadersInit | undefined);
+          if (!h.has("Content-Type")) h.set("Content-Type", "application/json");
+          return h;
+        })()
+      : headers,
     body,
     ...rest,
   });
@@ -70,38 +76,42 @@ export function apiDelete<T = unknown>(path: string, init: RequestInit = {}): Pr
   return apiFetch<T>(path, { ...init, method: "DELETE" });
 }
 
-// Shared error reporter for the ~20 catch sites that used to be a bare
-// `console.error(...)` — the only trace of a real production failure
-// (login/signup, checkout/payment, cash-out, admin actions, compliance,
-// reconciler, fee settlement) was the affected user's devtools console.
-// Forwards the error to the backend logging endpoint so Konfirm can see
-// failures without the user reporting them, while keeping `console.error`
-// as a local fallback (and as the only sink if the POST itself fails).
-// Fire-and-forget: never throws, never blocks the caller's error path.
-export function reportError(context: string, err: unknown, tags?: Record<string, string>): void {
-  console.error(`[konfirm] ${context}`, err);
-  const message = err instanceof Error ? err.message : typeof err === "string" ? err : String(err);
-  const stack = err instanceof Error ? err.stack : undefined;
-  void apiPost("/client-errors", { context, message, stack, tags }).catch(() => {
-    // Logging endpoint unreachable — the console.error above is all we have.
-  });
+// Admin list endpoints (merchants, users, wallets, referrals, pay-links,
+// x402-settlements, payments, notifications) accept `limit`/`offset` query
+// params and default to `limit = 50` server-side. They may also return a
+// total row count alongside the page of rows (either as `{ items, total }`
+// or `{ data, total }`), which callers can use to show a "showing X of N"
+// indicator and drive "load more"/pagination controls. `buildQuery` turns a
+// params object into a query string, skipping undefined/null values so a
+// caller can pass optional filters without conditionally building the path.
+export type QueryParams = Record<string, string | number | boolean | null | undefined>;
+
+export function buildQuery(params: QueryParams = {}): string {
+  const search = new URLSearchParams();
+  for (const [key, value] of Object.entries(params)) {
+    if (value === undefined || value === null) continue;
+    search.set(key, String(value));
+  }
+  const qs = search.toString();
+  return qs ? `?${qs}` : "";
 }
 
-// Registers a native "leave site?" confirmation while `enabled` is true —
-// used to guard the sign→submit window on flows moving real funds
-// (cashout, pay, faucet) so a tab close/navigation mid-signing isn't silent.
-// Only active while an operation is genuinely in flight, so idle/form
-// states never prompt.
-export function useBeforeUnload(enabled: boolean): void {
-  useEffect(() => {
-    if (!enabled) return;
-    const handler = (event: BeforeUnloadEvent) => {
-      event.preventDefault();
-      // Legacy browsers require returnValue to be set to show the prompt.
-      event.returnValue = "";
-      return "";
-    };
-    window.addEventListener("beforeunload", handler);
-    return () => window.removeEventListener("beforeunload", handler);
-  }, [enabled]);
+// Convenience wrapper for GET requests with query params, e.g.
+// `apiGet<Merchant[]>("/admin/merchants", { limit: 50, offset: 100 })`.
+export function apiGet<T = unknown>(path: string, params: QueryParams = {}, init: RequestInit = {}): Promise<ApiResult<T>> {
+  return apiFetch<T>(`${path}${buildQuery(params)}`, { ...init, method: "GET" });
+}
+
+// Extracts a total row count from a list response body, tolerating the
+// common shapes admin endpoints use (`{ total }`, `{ count }`, or a bare
+// array where no total is available). Returns `null` when the backend
+// didn't report a total, so callers can fall back to "there may be more".
+export function extractTotal(body: unknown): number | null {
+  if (Array.isArray(body)) return null;
+  if (body && typeof body === "object") {
+    const record = body as { total?: unknown; count?: unknown };
+    if (typeof record.total === "number") return record.total;
+    if (typeof record.count === "number") return record.count;
+  }
+  return null;
 }
