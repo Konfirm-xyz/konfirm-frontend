@@ -57,9 +57,15 @@ export default function ForgotPasswordPage() {
               />
             </div>
             <button type="submit" className="primary" disabled={submitting}>
-              Send reset link
+              {submitting ? "Sending…" : "Send reset link"}
             </button>
-            <div className={`status${status ? " error" : ""}`}>{status}</div>
+            <div
+              className={`status${status ? " error" : ""}`}
+              role="alert"
+              aria-live={status ? "assertive" : "polite"}
+            >
+              {status}
+            </div>
           </form>
         )}
         <div className="footer">

@@ -1,4 +1,5 @@
 "use client";
+import LoadingSpinner from "@/components/LoadingSpinner";
 
 import { useEffect, useState } from "react";
 import { apiFetch } from "@/lib/api";
@@ -19,16 +20,27 @@ export default function AdminBlockchainPage() {
   const [status, setStatus] = useState<BlockchainStatus | null>(null);
   const [loading, setLoading] = useState(true);
 
+  async function load() {
+    setLoading(true);
+    const result = await apiFetch<BlockchainStatus>("/admin/blockchain/status");
+    if (result.ok) setStatus(result.data);
+    setLoading(false);
+  }
+
   useEffect(() => {
-    (async () => {
-      const result = await apiFetch<BlockchainStatus>("/admin/blockchain/status");
-      if (result.ok) setStatus(result.data);
-      setLoading(false);
-    })();
+    load();
   }, []);
 
   if (loading) return <div className="empty">Loading…</div>;
-  if (!status) return <div className="empty">Could not load blockchain status.</div>;
+  if (!status)
+    return (
+      <div className="empty">
+        Could not load blockchain status.{" "}
+        <button type="button" onClick={load}>
+          Try again
+        </button>
+      </div>
+    );
 
   return (
     <div>
@@ -53,7 +65,9 @@ export default function AdminBlockchainPage() {
             <div className={`stat-value ${status.rpc.reachable ? "stat-good" : "stat-bad"}`} style={{ fontSize: 20 }}>
               {status.rpc.reachable ? "reachable" : "unreachable"}
             </div>
-            {status.rpc.reachable && <div className="stat-sub">{status.rpc.latencyMs}ms</div>}
+            {status.rpc.reachable && status.rpc.latencyMs !== null && (
+              <div className="stat-sub">{status.rpc.latencyMs}ms</div>
+            )}
           </div>
           <div className="stat-card">
             <div className="stat-label">Latest ledger</div>

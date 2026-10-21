@@ -77,9 +77,15 @@ function ResetPasswordForm() {
         />
       </div>
       <button type="submit" className="primary" disabled={submitting}>
-        Set new password
+        {submitting ? "Setting password…" : "Set new password"}
       </button>
-      <div className={`status${status ? " error" : ""}`}>{status}</div>
+      <div
+        className={`status${status ? " error" : ""}`}
+        role="alert"
+        aria-live={status ? "assertive" : "polite"}
+      >
+        {status}
+      </div>
     </form>
   );
 }
