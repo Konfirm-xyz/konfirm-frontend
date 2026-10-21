@@ -3,6 +3,7 @@
 import { Suspense, useEffect, useState, type FormEvent } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
 import Link from "next/link";
+import PasswordInput from "@/components/PasswordInput";
 import { API_BASE } from "@/lib/api";
 import { reportError } from "@/lib/report-error";
 
@@ -115,16 +116,16 @@ function SignupForm() {
           </div>
           <div className="field">
             <label htmlFor="password">Password</label>
-            <input
+            <PasswordInput
               id="password"
-              type="password"
               autoComplete="new-password"
               minLength={8}
+              maxLength={72}
               required
               value={password}
               onChange={(e) => setPassword(e.target.value)}
             />
-            <div className="hint">At least 8 characters.</div>
+            <div className="hint">At least 8 characters (72 max).</div>
           </div>
           <div className="field">
             <label htmlFor="address">Your Stellar payout address</label>

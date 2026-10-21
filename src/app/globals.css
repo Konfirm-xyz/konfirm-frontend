@@ -127,15 +127,10 @@ label {
 }
 .footer a {
   color: var(--accent);
-  text-decoration: none;
-  display: inline-block;
-  min-height: 24px;
-  min-width: 24px;
-  padding: 4px 2px;
-  line-height: 16px;
+  text-decoration: underline;
 }
 .footer a:hover {
-  text-decoration: underline;
+  text-decoration: none;
 }
 
 .hint {
@@ -158,6 +153,30 @@ input {
 input:focus {
   outline: 2px solid var(--accent);
   outline-offset: 1px;
+}
+
+.password-input {
+  position: relative;
+}
+.password-input input {
+  padding-right: 64px;
+}
+.password-input .password-toggle {
+  position: absolute;
+  top: 50%;
+  right: 6px;
+  transform: translateY(-50%);
+  width: auto;
+  padding: 6px 10px;
+  border-radius: 6px;
+  background: transparent;
+  color: var(--accent);
+  font-size: 12.5px;
+  font-weight: 600;
+  text-decoration: underline;
+}
+.password-input .password-toggle:hover {
+  text-decoration: none;
 }
 
 select {
@@ -214,7 +233,9 @@ button.primary {
   margin-bottom: 10px;
 }
 button.primary:disabled {
-  opacity: 0.5;
+  background: var(--border);
+  color: var(--text-lo);
+  opacity: 1;
   cursor: not-allowed;
 }
 
