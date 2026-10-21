@@ -48,6 +48,7 @@ export default function CashoutPage() {
   const [stage, setStage] = useState("");
   const [hint, setHint] = useState("");
   const [starting, setStarting] = useState(false);
+  const [freighterAvailable, setFreighterAvailable] = useState<boolean | null>(null);
 
   const merchantAddress = useRef<string | null>(null);
   const cancelled = useRef(false);
@@ -55,6 +56,14 @@ export default function CashoutPage() {
   const signingInFlight = useRef(false);
   const inFlight = useRef(false);
   useBeforeUnload(signingInFlight);
+
+  useEffect(() => {
+    freighterApi.isConnected().then((res) => {
+      setFreighterAvailable(!res.error && res.isConnected !== false);
+    }).catch(() => {
+      setFreighterAvailable(false);
+    });
+  }, []);
 
   // Ref mutation (not React state) in response to an external value
   // arriving — the one part of the original effect that's genuinely
@@ -275,21 +284,19 @@ export default function CashoutPage() {
             </div>
             <div className="limit-note">This test partner accepts between 1–10 units per cash-out.</div>
 
-            <button
-              type="button"
-              className="primary"
-              disabled={starting || Boolean(missingAddressStatus)}
-              onClick={handleStart}
-            >
-              Connect wallet &amp; start cash-out
-            </button>
-            <div
-              className={`status${status || missingAddressStatus ? " error" : ""}`}
-              role="alert"
-              aria-live={status || missingAddressStatus ? "assertive" : "polite"}
-            >
-              {status || missingAddressStatus}
-            </div>
+            {freighterAvailable === false ? (
+              <div className="status error">
+                Cash-out requires the Freighter browser extension. Open this page in Chrome or Firefox on desktop with{" "}
+                <a href="https://freighter.app" target="_blank" rel="noopener noreferrer">Freighter installed</a>.
+              </div>
+            ) : (
+              <>
+                <button type="button" className="primary" disabled={starting} onClick={handleStart}>
+                  Connect wallet &amp; start cash-out
+                </button>
+                <div className={`status${status || missingAddressStatus ? " error" : ""}`}>{status || missingAddressStatus}</div>
+              </>
+            )}
           </div>
         )}
 

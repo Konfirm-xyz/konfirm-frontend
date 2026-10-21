@@ -3,6 +3,7 @@ import "./globals.css";
 import RouteAnnouncer from "./RouteAnnouncer";
 
 export const metadata: Metadata = {
+  metadataBase: new URL(process.env.NEXT_PUBLIC_BASE_URL ?? "https://konfirm.xyz"),
   title: {
     template: "%s · Konfirm",
     default: "Konfirm",
