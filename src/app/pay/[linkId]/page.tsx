@@ -1,27 +1,12 @@
-"use client";
-
-import { use, useEffect, useRef, useState } from "react";
 import type { Metadata } from "next";
-import freighterApi from "@stellar/freighter-api";
-import qrcode from "qrcode-generator";
 import { API_BASE } from "@/lib/api";
-import { reportError } from "@/lib/report-error";
-import { useBeforeUnload } from "@/lib/use-before-unload";
+import CheckoutClient from "./checkout-client";
 
-const HORIZON_URL = "https://horizon-testnet.stellar.org";
-
-interface LinkData {
+interface LinkPublic {
   merchant_name: string;
   description: string | null;
   amount_usdc: string;
-  fee_usdc: string | null;
   currency: string;
-  stellar_base_address: string;
-}
-
-interface ConfirmedPayment {
-  tx_hash: string;
-  muxed_id: string;
 }
 
 const STAGE = {
@@ -290,6 +275,7 @@ export default function CheckoutPage({ params }: { params: Promise<{ linkId: str
     const str = Number(value).toFixed(2);
     return currency === "USDC" ? `$${str}` : `${str} ${currency}`;
   }
+}
 
   const amountDisplay = linkData ? formatCurrency(linkData.amount_usdc, linkData.currency) : "";
   const feeUsdc = linkData?.fee_usdc ? Number(linkData.fee_usdc) : 0;

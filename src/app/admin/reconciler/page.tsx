@@ -1,6 +1,7 @@
 "use client";
+import LoadingSpinner from "@/components/LoadingSpinner";
 
-import { useEffect, useState, type FormEvent } from "react";
+import { useEffect, useRef, useState, type FormEvent } from "react";
 import { API_BASE } from "@/lib/api";
 import { reportError } from "@/lib/report-error";
 import { formatUtcTimestamp } from "@/lib/format-date";
@@ -38,6 +39,7 @@ export default function AdminReconcilerPage() {
   const [submitting, setSubmitting] = useState(false);
   const [result, setResult] = useState("");
   const [error, setError] = useState("");
+  const inFlight = useRef(false);
 
   async function load() {
     const res = await fetch(`${API_BASE}/admin/reconciler/status`, { credentials: "include" });
@@ -55,6 +57,7 @@ export default function AdminReconcilerPage() {
 
   async function handleRewind(e: FormEvent) {
     e.preventDefault();
+    if (inFlight.current) return;
     if (validationError || !target.trim()) return;
     if (
       !window.confirm(
@@ -64,6 +67,7 @@ export default function AdminReconcilerPage() {
       return;
     }
 
+    inFlight.current = true;
     setSubmitting(true);
     setError("");
     setResult("");
@@ -83,6 +87,7 @@ export default function AdminReconcilerPage() {
       reportError(err, { context: "admin reconciler rewind failed" });
       setError(err instanceof Error ? err.message : "Could not rewind the cursor.");
     } finally {
+      inFlight.current = false;
       setSubmitting(false);
     }
   }
@@ -97,7 +102,7 @@ export default function AdminReconcilerPage() {
 
       <div className="admin-section">
         {loading ? (
-          <div className="empty">Loading…</div>
+          <LoadingSpinner />
         ) : (
           <div className="admin-status-row">
             <div>
@@ -119,6 +124,7 @@ export default function AdminReconcilerPage() {
               type="text"
               placeholder="a Horizon paging token, or 'now'"
               autoComplete="off"
+              spellCheck={false}
               value={target}
               onChange={(e) => setTarget(e.target.value)}
             />

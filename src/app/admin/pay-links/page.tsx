@@ -1,8 +1,9 @@
 "use client";
+import LoadingSpinner from "@/components/LoadingSpinner";
 
 import { useEffect, useState } from "react";
 import { apiFetch } from "@/lib/api";
-import { formatUtcDateTime } from "@/lib/format";
+import { formatAmount } from "@/lib/format";
 
 interface PayLink {
   id: string;
@@ -20,27 +21,39 @@ interface PayLink {
 }
 
 
-function formatAmount(link: PayLink): string {
-  if (link.amount_usdc === null) return "Any amount";
-  return `${Number(link.amount_usdc).toFixed(2)} ${link.currency}`;
-}
+
+
+const PAGE_SIZE = 50;
 
 export default function AdminPayLinksPage() {
   const [links, setLinks] = useState<PayLink[]>([]);
   const [loading, setLoading] = useState(true);
-  const [error, setError] = useState(false);
+  const [loadingMore, setLoadingMore] = useState(false);
+  const [offset, setOffset] = useState(0);
+  const [hasMore, setHasMore] = useState(false);
 
   useEffect(() => {
     (async () => {
-      const result = await apiFetch<PayLink[]>("/admin/links");
-      if (result.ok && result.data) {
+      const result = await apiFetch<PayLink[]>(`/admin/links?limit=${PAGE_SIZE}&offset=0`);
+      if (result.ok) {
         setLinks(result.data);
-      } else {
-        setError(true);
+        setHasMore(result.data.length === PAGE_SIZE);
       }
       setLoading(false);
     })();
   }, []);
+
+  async function loadMore() {
+    setLoadingMore(true);
+    const nextOffset = offset + PAGE_SIZE;
+    const result = await apiFetch<PayLink[]>(`/admin/links?limit=${PAGE_SIZE}&offset=${nextOffset}`);
+    if (result.ok) {
+      setLinks((prev) => [...prev, ...result.data]);
+      setOffset(nextOffset);
+      setHasMore(result.data.length === PAGE_SIZE);
+    }
+    setLoadingMore(false);
+  }
 
   const activeCount = links.filter((l) => l.active).length;
   const reusableCount = links.filter((l) => l.reusable).length;
@@ -57,19 +70,19 @@ export default function AdminPayLinksPage() {
       <div className="admin-section">
         <div className="stat-grid">
           <div className="stat-card">
-            <div className="stat-label">Total links</div>
+            <div className="stat-label">Links loaded</div>
             <div className="stat-value">{links.length}</div>
           </div>
           <div className="stat-card">
-            <div className="stat-label">Active</div>
+            <div className="stat-label">Active (loaded)</div>
             <div className="stat-value stat-good">{activeCount}</div>
           </div>
           <div className="stat-card">
-            <div className="stat-label">Reusable</div>
+            <div className="stat-label">Reusable (loaded)</div>
             <div className="stat-value">{reusableCount}</div>
           </div>
           <div className="stat-card">
-            <div className="stat-label">Collected via links</div>
+            <div className="stat-label">Collected via loaded links</div>
             <div className="stat-value">${totalCollected.toFixed(2)}</div>
           </div>
         </div>
@@ -77,7 +90,7 @@ export default function AdminPayLinksPage() {
 
       <div className="admin-section">
         {loading ? (
-          <div className="empty">Loading…</div>
+          <LoadingSpinner />
         ) : error ? (
           <div className="empty">Could not load pay links — try again.</div>
         ) : links.length === 0 ? (
@@ -99,7 +112,9 @@ export default function AdminPayLinksPage() {
                 {links.map((l) => (
                   <tr key={l.id}>
                     <td style={{ color: "var(--text-hi)" }}>{l.merchant_name}</td>
-                    <td className="mono">{formatAmount(l)}</td>
+                    <td className="mono">
+                      {l.amount_usdc === null ? "Any amount" : formatAmount(l.amount_usdc, l.currency)}
+                    </td>
                     <td>{l.description || "—"}</td>
                     <td className="mono">
                       {l.use_count}
@@ -113,6 +128,20 @@ export default function AdminPayLinksPage() {
                 ))}
               </tbody>
             </table>
+          </div>
+        )}
+        {!loading && links.length > 0 && (
+          <div className="admin-pagination" style={{ marginTop: 12, display: "flex", alignItems: "center", gap: 12 }}>
+            <span className="sub" style={{ margin: 0 }}>
+              Showing {links.length}
+              {hasMore ? "+" : ""} {hasMore ? "of at least" : "of"} {links.length}
+              {hasMore ? " (more available)" : ""}
+            </span>
+            {hasMore && (
+              <button className="btn" onClick={loadMore} disabled={loadingMore}>
+                {loadingMore ? "Loading…" : "Load more"}
+              </button>
+            )}
           </div>
         )}
       </div>
