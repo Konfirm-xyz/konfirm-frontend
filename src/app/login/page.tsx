@@ -86,7 +86,7 @@ export default function LoginPage() {
             />
           </div>
           <button type="submit" className="primary" disabled={submitting}>
-            Log in
+            {submitting ? "Logging in…" : "Log in"}
           </button>
           <div
             className={`status${status ? " error" : ""}`}

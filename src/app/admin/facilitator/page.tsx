@@ -52,8 +52,16 @@ export default function AdminFacilitatorPage() {
     }
   }
 
-  if (loading) return <LoadingSpinner />;
-  if (!status) return <div className="empty">Could not load facilitator status.</div>;
+  if (loading) return <div className="empty">Loading…</div>;
+  if (!status)
+    return (
+      <div className="empty">
+        Could not load facilitator status.{" "}
+        <button type="button" onClick={load}>
+          Try again
+        </button>
+      </div>
+    );
 
   return (
     <div>

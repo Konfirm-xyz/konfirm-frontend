@@ -37,6 +37,7 @@ export default function GetTestUsdcPage() {
 
   const freighterAddress = useRef<string | null>(null);
   const signingInFlight = useRef(false);
+  const sendInFlight = useRef(false);
 
   const setSigningInFlight = useCallback((value: boolean) => {
     signingInFlight.current = value;
@@ -123,13 +124,18 @@ export default function GetTestUsdcPage() {
   }
 
   async function handleSend() {
+    if (sendInFlight.current) return;
+    sendInFlight.current = true;
+
     const destTrimmed = dest.trim();
     if (!/^G[A-Z2-7]{55}$/.test(destTrimmed)) {
       setStatus2("Enter a valid Stellar G... address.");
+      sendInFlight.current = false;
       return;
     }
     if (!amount || Number(amount) <= 0) {
       setStatus2("Enter an amount greater than 0.");
+      sendInFlight.current = false;
       return;
     }
 
@@ -175,6 +181,7 @@ export default function GetTestUsdcPage() {
     } finally {
       setSigningInFlight(false);
       setSending(false);
+      sendInFlight.current = false;
     }
   }
 

@@ -27,16 +27,27 @@ export default function AdminTreasuryPage() {
   const [status, setStatus] = useState<TreasuryStatus | null>(null);
   const [loading, setLoading] = useState(true);
 
+  async function load() {
+    setLoading(true);
+    const result = await apiFetch<TreasuryStatus>("/admin/treasury/status");
+    if (result.ok) setStatus(result.data);
+    setLoading(false);
+  }
+
   useEffect(() => {
-    (async () => {
-      const result = await apiFetch<TreasuryStatus>("/admin/treasury/status");
-      if (result.ok) setStatus(result.data);
-      setLoading(false);
-    })();
+    load();
   }, []);
 
-  if (loading) return <LoadingSpinner />;
-  if (!status) return <div className="empty">Could not load treasury status.</div>;
+  if (loading) return <div className="empty">Loading…</div>;
+  if (!status)
+    return (
+      <div className="empty">
+        Could not load treasury status.{" "}
+        <button type="button" onClick={load}>
+          Try again
+        </button>
+      </div>
+    );
 
   return (
     <div>

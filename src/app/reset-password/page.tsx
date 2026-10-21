@@ -77,7 +77,7 @@ function ResetPasswordForm() {
         />
       </div>
       <button type="submit" className="primary" disabled={submitting}>
-        Set new password
+        {submitting ? "Setting password…" : "Set new password"}
       </button>
       <div
         className={`status${status ? " error" : ""}`}

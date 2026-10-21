@@ -284,19 +284,10 @@ export default function CashoutPage() {
             </div>
             <div className="limit-note">This test partner accepts between 1–10 units per cash-out.</div>
 
-            {freighterAvailable === false ? (
-              <div className="status error">
-                Cash-out requires the Freighter browser extension. Open this page in Chrome or Firefox on desktop with{" "}
-                <a href="https://freighter.app" target="_blank" rel="noopener noreferrer">Freighter installed</a>.
-              </div>
-            ) : (
-              <>
-                <button type="button" className="primary" disabled={starting} onClick={handleStart}>
-                  Connect wallet &amp; start cash-out
-                </button>
-                <div className={`status${status || missingAddressStatus ? " error" : ""}`}>{status || missingAddressStatus}</div>
-              </>
-            )}
+            <button type="button" className="primary" disabled={starting} onClick={handleStart}>
+              {starting ? "Starting…" : "Connect wallet & start cash-out"}
+            </button>
+            <div className={`status${status || missingAddressStatus ? " error" : ""}`}>{status || missingAddressStatus}</div>
           </div>
         )}
 

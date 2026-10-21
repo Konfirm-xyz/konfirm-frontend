@@ -112,21 +112,32 @@ export default function AdminOverviewPage() {
   const [loading, setLoading] = useState(true);
   const [activityError, setActivityError] = useState(false);
 
+  async function load() {
+    setLoading(true);
+    const [statsResult, activityResult] = await Promise.all([
+      apiFetch<Stats>("/admin/stats"),
+      apiFetch<ActivityEntry[]>("/admin/activity"),
+    ]);
+    if (statsResult.data) setStats(statsResult.data);
+    if (activityResult.data) setActivity(activityResult.data);
+    else setActivityError(true);
+    setLoading(false);
+  }
+
   useEffect(() => {
-    (async () => {
-      const [statsResult, activityResult] = await Promise.all([
-        apiFetch<Stats>("/admin/stats"),
-        apiFetch<ActivityEntry[]>("/admin/activity"),
-      ]);
-      if (statsResult.data) setStats(statsResult.data);
-      if (activityResult.data) setActivity(activityResult.data);
-      else setActivityError(true);
-      setLoading(false);
-    })();
+    load();
   }, []);
 
-  if (loading) return <LoadingSpinner />;
-  if (!stats) return <div className="empty">Could not load stats.</div>;
+  if (loading) return <div className="empty">Loading…</div>;
+  if (!stats)
+    return (
+      <div className="empty">
+        Could not load stats.{" "}
+        <button type="button" onClick={load}>
+          Try again
+        </button>
+      </div>
+    );
 
   return (
     <div>

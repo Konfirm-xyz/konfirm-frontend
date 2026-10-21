@@ -139,7 +139,7 @@ function SignupForm() {
             <div className="hint">This is where your payments land — Konfirm never holds your funds.</div>
           </div>
           <button type="submit" className="primary" disabled={submitting}>
-            Create account
+            {submitting ? "Creating account…" : "Create account"}
           </button>
           <div
             className={`status${status ? " error" : ""}`}

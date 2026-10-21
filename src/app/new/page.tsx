@@ -203,8 +203,8 @@ export default function NewPaymentPage() {
               </div>
             </div>
 
-            <button type="submit" className="primary" disabled={submitting}>
-              Create payment link
+            <button type="button" className="primary" disabled={submitting} onClick={handleSubmit}>
+              {submitting ? "Creating…" : "Create payment link"}
             </button>
             <div className={`status${status ? " error" : ""}`}>{status}</div>
           </form>
