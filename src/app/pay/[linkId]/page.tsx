@@ -162,6 +162,20 @@ export default function CheckoutPage({ params }: { params: Promise<{ linkId: str
         if (cancelledRef.current) return null;
         if (body.confirmed && body.payment) return { tx_hash: body.payment.tx_hash, muxed_id: muxedId };
       }
+      // Don't burn the bounded attempt budget while the tab is hidden —
+      // wait for the payer to actually be looking at the page again.
+      if (typeof document !== "undefined" && document.hidden) {
+        await new Promise<void>((resolve) => {
+          const onVisible = () => {
+            if (!document.hidden) {
+              document.removeEventListener("visibilitychange", onVisible);
+              resolve();
+            }
+          };
+          document.addEventListener("visibilitychange", onVisible);
+        });
+        continue;
+      }
       await new Promise((r) => setTimeout(r, intervalMs));
     }
     return null;

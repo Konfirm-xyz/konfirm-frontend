@@ -55,6 +55,10 @@ const HOLD_REASON_TEXT: Record<string, string> = {
 };
 const HOLD_FALLBACK = "Held for review";
 
+// How many consecutive failed polls before we stop claiming to be "live" and
+// warn the merchant. A single blip shouldn't flash a scary banner.
+const POLL_FAILURE_THRESHOLD = 2;
+
 interface Merchant {
   name: string;
   stellar_base_address: string | null;
@@ -91,42 +95,73 @@ function ActivityContent() {
   const showNav = Boolean(merchant);
   const [payments, setPayments] = useState<Payment[]>([]);
   const [pending, setPending] = useState(false);
-  const [statusFilter, setStatusFilter] = useState<"all" | PaymentStatus>("all");
-  const [dateFilter, setDateFilter] = useState<DateRangePreset>("all");
-  const [expandedId, setExpandedId] = useState<string | null>(null);
-  const [now, setNow] = useState<number | null>(null);
+  const [pollError, setPollError] = useState(false);
 
   const poll = useCallback(async () => {
     if (!hasAddress) return;
-    const [paymentsRes, pendingRes] = await Promise.all([
-      fetch(`${API_BASE}/payments/mine`),
-      fetch(`${API_BASE}/payments/mine/pending`),
-    ]);
-    if (!paymentsRes.ok || !pendingRes.ok) return;
-    const paymentsBody: Payment[] = await paymentsRes.json();
-    const pendingBody = await pendingRes.json();
-    setPayments(paymentsBody);
-    setPending(Boolean(pendingBody.pending));
-    setNow(Date.now());
+    try {
+      const [paymentsRes, pendingRes] = await Promise.all([
+        fetch(`${API_BASE}/payments/mine`),
+        fetch(`${API_BASE}/payments/mine/pending`),
+      ]);
+      if (!paymentsRes.ok || !pendingRes.ok) {
+        setPollError(true);
+        return;
+      }
+      const paymentsBody: Payment[] = await paymentsRes.json();
+      const pendingBody = await pendingRes.json();
+      setPayments(paymentsBody);
+      setPending(Boolean(pendingBody.pending));
+      setPollError(false);
+    } catch {
+      setPollError(true);
+    }
   }, [hasAddress]);
 
   // The recursive scheduling lives here, in a plain local function, rather
   // than inside the `poll` callback referencing itself — a useCallback
   // can't safely call itself by name before its own declaration finishes
   // binding on each render.
+  //
+  // Polling is visibility-aware: a background tab doesn't need live updates,
+  // so we stop the loop while `document.hidden` and resume (with an immediate
+  // re-poll) when the tab becomes visible again. This keeps a dashboard left
+  // open all day from generating continuous backend load.
   useEffect(() => {
     if (!resolved) return;
     let cancelled = false;
-    let timer: ReturnType<typeof setTimeout>;
+    let timer: ReturnType<typeof setTimeout> | undefined;
+
+    function schedule() {
+      if (cancelled) return;
+      clearTimeout(timer);
+      timer = setTimeout(loop, 3000);
+    }
+
     async function loop() {
       if (cancelled) return;
+      if (document.hidden) return;
       await poll();
-      if (!cancelled) timer = setTimeout(loop, 3000);
+      if (!cancelled) schedule();
     }
+
+    function handleVisibility() {
+      if (cancelled) return;
+      if (document.hidden) {
+        clearTimeout(timer);
+      } else {
+        // Resume and immediately re-poll so the merchant sees fresh data.
+        clearTimeout(timer);
+        loop();
+      }
+    }
+
     loop();
+    document.addEventListener("visibilitychange", handleVisibility);
     return () => {
       cancelled = true;
       clearTimeout(timer);
+      document.removeEventListener("visibilitychange", handleVisibility);
     };
   }, [resolved, poll]);
 
@@ -192,9 +227,15 @@ function ActivityContent() {
       </div>
       <h1>{merchant?.name ? `${merchant.name}'s activity` : "Your activity"}</h1>
       <p className="sub">Every payment below landed and was konfirmed on-chain — nothing here is an estimate.</p>
-      <div className="live-dot">
-        <span className="d" /> Watching for new payments
-      </div>
+      {pollError ? (
+        <div className="waiting-banner show" role="status">
+          <span className="spin" /> Having trouble reaching the server — retrying…
+        </div>
+      ) : (
+        <div className="live-dot">
+          <span className="d" /> Watching for new payments
+        </div>
+      )}
       <div className={`waiting-banner${pending ? " show" : ""}`}>
         <span className="spin" /> A payment is on its way — konfirming on-chain now…
       </div>

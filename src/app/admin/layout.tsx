@@ -100,7 +100,7 @@ export default function AdminShell({ children }: { children: React.ReactNode }) 
                   key={item.href}
                   href={item.href}
                   className={pathname === item.href ? "active" : ""}
-                  onClick={() => setSidebarOpen(false)}
+                  aria-current={pathname === item.href ? "page" : undefined}
                 >
                   {item.label}
                 </Link>
