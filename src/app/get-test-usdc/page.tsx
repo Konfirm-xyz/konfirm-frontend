@@ -1,7 +1,6 @@
 "use client";
 
-import { useCallback, useRef, useState } from "react";
-import freighterApi from "@stellar/freighter-api";
+import { useRef, useState } from "react";
 import { API_BASE } from "@/lib/api";
 import { reportError } from "@/lib/report-error";
 import { useBeforeUnload } from "@/lib/use-before-unload";
@@ -38,6 +37,7 @@ export default function GetTestUsdcPage() {
 
   const freighterAddress = useRef<string | null>(null);
   const signingInFlight = useRef(false);
+  const sendInFlight = useRef(false);
 
   const setSigningInFlight = useCallback((value: boolean) => {
     signingInFlight.current = value;
@@ -56,6 +56,7 @@ export default function GetTestUsdcPage() {
     setStatus1("");
     try {
       showProgress("Connecting your wallet…");
+      const { default: freighterApi } = await import("@stellar/freighter-api");
       const access = await freighterApi.requestAccess();
       if (access.error) throw new Error(access.error);
       freighterAddress.current = access.address;
@@ -91,7 +92,7 @@ export default function GetTestUsdcPage() {
       const startBody = await startRes.json();
       if (!startRes.ok) throw new Error(startBody.message || "could not start a deposit");
 
-      window.open(startBody.url, "konfirm-deposit", "width=460,height=700");
+      window.open(startBody.url, "konfirm-deposit", "width=460,height=700,noopener,noreferrer");
 
       for (let i = 0; i < 150; i++) {
         if (cancelled.current) return;
@@ -123,13 +124,18 @@ export default function GetTestUsdcPage() {
   }
 
   async function handleSend() {
+    if (sendInFlight.current) return;
+    sendInFlight.current = true;
+
     const destTrimmed = dest.trim();
     if (!/^G[A-Z2-7]{55}$/.test(destTrimmed)) {
       setStatus2("Enter a valid Stellar G... address.");
+      sendInFlight.current = false;
       return;
     }
     if (!amount || Number(amount) <= 0) {
       setStatus2("Enter an amount greater than 0.");
+      sendInFlight.current = false;
       return;
     }
 
@@ -146,7 +152,7 @@ export default function GetTestUsdcPage() {
       if (!prepRes.ok) throw new Error(prep.message || "could not prepare the transfer");
 
       showProgress("Approve the transfer in your wallet…");
-      setSigningInFlight(true);
+      const { default: freighterApi } = await import("@stellar/freighter-api");
       const signed = await freighterApi.signTransaction(prep.xdr, {
         networkPassphrase: prep.network_passphrase,
         address: freighterAddress.current!,
@@ -175,6 +181,7 @@ export default function GetTestUsdcPage() {
     } finally {
       setSigningInFlight(false);
       setSending(false);
+      sendInFlight.current = false;
     }
   }
 
@@ -203,7 +210,13 @@ export default function GetTestUsdcPage() {
             <button type="button" className="primary" disabled={connecting} onClick={handleConnect}>
               Connect Freighter &amp; get test USDC
             </button>
-            <div className={`status${status1 ? " error" : ""}`}>{status1}</div>
+            <div
+              className={`status${status1 ? " error" : ""}`}
+              role="alert"
+              aria-live={status1 ? "assertive" : "polite"}
+            >
+              {status1}
+            </div>
           </div>
         )}
 
@@ -219,7 +232,7 @@ export default function GetTestUsdcPage() {
             <p className="sub">Test USDC landed in your Freighter account. Now send some to the wallet you&apos;re actually testing with.</p>
             <div className="field">
               <label htmlFor="dest">Destination address</label>
-              <input id="dest" type="text" placeholder="G..." autoComplete="off" value={dest} onChange={(e) => setDest(e.target.value)} />
+              <input id="dest" type="text" placeholder="G..." autoComplete="off" spellCheck={false} value={dest} onChange={(e) => setDest(e.target.value)} />
               <div className="hint">Must already have a USDC trustline — Konfirm can&apos;t add one for an address it never signs with.</div>
             </div>
             <div className="field">
@@ -229,7 +242,13 @@ export default function GetTestUsdcPage() {
             <button type="button" className="primary" disabled={sending} onClick={handleSend}>
               Send USDC
             </button>
-            <div className={`status${status2 ? " error" : ""}`}>{status2}</div>
+            <div
+              className={`status${status2 ? " error" : ""}`}
+              role="alert"
+              aria-live={status2 ? "assertive" : "polite"}
+            >
+              {status2}
+            </div>
           </div>
         )}
 

@@ -1,6 +1,6 @@
 "use client";
 
-import { Suspense, useState, type FormEvent } from "react";
+import { Suspense, useEffect, useState, type FormEvent } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
 import Link from "next/link";
 import PasswordInput from "@/components/PasswordInput";
@@ -10,6 +10,25 @@ import { reportError } from "@/lib/report-error";
 function SignupForm() {
   const router = useRouter();
   const searchParams = useSearchParams();
+
+  // Already-authenticated visitors shouldn't see the signup form — bounce
+  // them straight to the app instead.
+  useEffect(() => {
+    let cancelled = false;
+    (async () => {
+      try {
+        const res = await fetch(`${API_BASE}/auth/me`, { credentials: "include" });
+        if (!cancelled && res.ok) {
+          router.replace("/activity");
+        }
+      } catch {
+        // Ignore — just means we stay on the signup page.
+      }
+    })();
+    return () => {
+      cancelled = true;
+    };
+  }, [router]);
   // Present only when someone arrived via another merchant's referral
   // link (see /referrals) — an invalid/expired code is rejected silently
   // server-side, not surfaced as an error here, since it should never
@@ -24,6 +43,11 @@ function SignupForm() {
 
   async function handleSubmit(e: FormEvent) {
     e.preventDefault();
+    const addressTrimmed = address.trim();
+    if (!/^G[A-Z2-7]{55}$/.test(addressTrimmed)) {
+      setStatus("Enter a valid Stellar G... address.");
+      return;
+    }
     setSubmitting(true);
     setStatus("");
     try {
@@ -35,7 +59,7 @@ function SignupForm() {
           name,
           email,
           password,
-          stellar_base_address: address.trim(),
+          stellar_base_address: addressTrimmed,
           ...(referralCode ? { referral_code: referralCode } : {}),
         }),
       });
@@ -72,7 +96,9 @@ function SignupForm() {
               id="name"
               type="text"
               autoComplete="organization"
+              autoFocus
               required
+              maxLength={120}
               value={name}
               onChange={(e) => setName(e.target.value)}
             />
@@ -107,6 +133,7 @@ function SignupForm() {
               id="address"
               type="text"
               placeholder="G..."
+              autoComplete="off"
               required
               value={address}
               onChange={(e) => setAddress(e.target.value)}
@@ -114,9 +141,15 @@ function SignupForm() {
             <div className="hint">This is where your payments land — Konfirm never holds your funds.</div>
           </div>
           <button type="submit" className="primary" disabled={submitting}>
-            Create account
+            {submitting ? "Creating account…" : "Create account"}
           </button>
-          <div className={`status${status ? " error" : ""}`}>{status}</div>
+          <div
+            className={`status${status ? " error" : ""}`}
+            role="alert"
+            aria-live={status ? "assertive" : "polite"}
+          >
+            {status}
+          </div>
         </form>
         <div className="footer">
           Already have an account? <Link href="/login">Log in</Link>

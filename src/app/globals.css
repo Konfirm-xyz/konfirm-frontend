@@ -1,4 +1,5 @@
 :root {
+  color-scheme: dark;
   --ink: #0a0908;
   --surface: #17140f;
   --surface-2: #1e1a14;
@@ -25,6 +26,7 @@ body {
 
 body {
   min-height: 100vh;
+  min-height: 100dvh;
   background: var(--ink);
   color: var(--text-hi);
   font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
@@ -40,6 +42,7 @@ body {
   align-items: center;
   justify-content: center;
   min-height: 100vh;
+  min-height: 100dvh;
   padding: 24px;
 }
 
@@ -212,12 +215,16 @@ select:focus {
 button {
   width: 100%;
   padding: 14px;
+  min-height: 48px;
   border-radius: 999px;
   border: none;
   font-size: 15px;
   font-weight: 700;
   cursor: pointer;
   font-family: inherit;
+  display: flex;
+  align-items: center;
+  justify-content: center;
 }
 
 button.primary {
@@ -239,6 +246,17 @@ button.secondary {
   margin-top: 10px;
 }
 
+/*
+ * Shared status / error message region (issue #45).
+ *
+ * Every form renders its feedback in a `.status` element. For screen readers
+ * to announce changes, the element must be a live region that already exists
+ * in the DOM before its text changes. Pages add `role="alert"` (or
+ * `aria-live="assertive"` for errors / `"polite"` for status) to the element;
+ * this rule keeps it rendered (min-height, never display:none / visibility:
+ * hidden / content collapsed) so the live region is present and observable
+ * even while empty.
+ */
 .status {
   font-size: 14px;
   color: var(--text-lo);
@@ -248,6 +266,13 @@ button.secondary {
 }
 .status.error {
   color: var(--error);
+}
+/* Never hide the live region: keep it in the accessibility tree at all times. */
+.status[aria-live],
+.status[role="alert"],
+.status[role="status"] {
+  display: block;
+  visibility: visible;
 }
 
 .hidden {
@@ -263,6 +288,10 @@ button.secondary {
 }
 .ctoggle {
   width: auto;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-height: 44px;
   padding: 8px 20px;
   border-radius: 999px;
   border: 1px solid var(--border);
@@ -285,6 +314,24 @@ button.secondary {
   font-size: 12.5px;
   color: var(--text-faint);
   margin-bottom: 24px;
+}
+
+/* Forced colors (e.g. Windows High Contrast) strip custom backgrounds, so
+   anything that only communicated state via `background: var(--accent)`
+   — the primary button and the active currency toggle — can disappear
+   into the surrounding surface. Give them an explicit border and rely on
+   system colors so the shapes and active state stay visible. */
+@media (forced-colors: active) {
+  button.primary {
+    border: 2px solid ButtonText;
+  }
+  .ctoggle {
+    border: 1px solid ButtonText;
+  }
+  .ctoggle.active {
+    border: 2px solid Highlight;
+    outline: 1px solid Highlight;
+  }
 }
 
 /* Amount hero (new) */
@@ -354,6 +401,10 @@ input.amount-input:focus {
   flex-wrap: wrap;
 }
 .chip {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-height: 44px;
   padding: 6px 14px;
   border-radius: 999px;
   border: 1px solid var(--border);
@@ -529,6 +580,10 @@ a.txlink {
 .nav a,
 .nav button {
   width: auto;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-height: 44px;
   font-size: 13px;
   color: var(--text-lo);
   text-decoration: none;
@@ -536,7 +591,7 @@ a.txlink {
   border: none;
   cursor: pointer;
   font-family: inherit;
-  padding: 0;
+  padding: 10px 4px;
 }
 .nav a:hover,
 .nav button:hover {
@@ -678,6 +733,7 @@ a.txlink {
 .admin-shell {
   display: flex;
   min-height: 100vh;
+  min-height: 100dvh;
 }
 .admin-sidebar {
   width: 220px;
@@ -713,7 +769,10 @@ a.txlink {
   margin-bottom: 2px;
 }
 .admin-sidebar-nav a {
-  padding: 10px 12px;
+  display: flex;
+  align-items: center;
+  min-height: 48px;
+  padding: 0 12px;
   border-radius: 8px;
   color: var(--text-lo);
   text-decoration: none;
@@ -736,8 +795,11 @@ a.txlink {
   margin: 0 0 8px;
 }
 .admin-sidebar-footer button {
+  display: flex;
+  align-items: center;
   width: auto;
-  padding: 0;
+  min-height: 44px;
+  padding: 10px 4px;
   font-size: 13px;
   color: var(--text-lo);
   background: none;
@@ -750,6 +812,7 @@ a.txlink {
 }
 .admin-main {
   flex: 1;
+  min-width: 0;
   max-width: 960px;
   padding: 40px 44px;
 }
@@ -879,11 +942,18 @@ a.txlink {
 .admin-table button {
   width: auto;
   padding: 6px 14px;
+  min-height: 44px;
   font-size: 12.5px;
   margin: 0;
   border: 1px solid var(--border);
   background: transparent;
   color: var(--text-hi);
+}
+.admin-table td .button-group {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  align-items: center;
 }
 .admin-table button:hover {
   border-color: var(--accent);
@@ -1023,4 +1093,67 @@ a.txlink {
 .admin-status-row .mono {
   font-size: 14px;
   color: var(--text-hi);
+}
+
+/* ── Responsive breakpoints ────────────────────────────────────────────────── */
+
+/* Tablet: ≤ 768 px */
+@media (max-width: 768px) {
+  .admin-shell {
+    flex-direction: column;
+  }
+  .admin-sidebar {
+    width: 100%;
+    border-right: none;
+    border-bottom: 1px solid var(--border);
+    padding: 16px 20px;
+  }
+  .admin-sidebar nav {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 4px;
+  }
+  .admin-main {
+    padding: 20px 16px;
+  }
+  .admin-main h1 {
+    font-size: 22px;
+  }
+  .stat-grid {
+    grid-template-columns: repeat(2, 1fr);
+  }
+}
+
+/* Phone: ≤ 480 px */
+@media (max-width: 480px) {
+  .page-center {
+    padding: 16px;
+    align-items: flex-start;
+    padding-top: 32px;
+  }
+  .card {
+    padding: 24px 16px;
+    border-radius: 12px;
+  }
+  .amount-display {
+    font-size: 36px;
+  }
+  .primary,
+  .secondary {
+    font-size: 15px;
+    padding: 14px 16px;
+    min-height: 48px; /* touch-target */
+  }
+  .stat-grid {
+    grid-template-columns: 1fr;
+  }
+  .admin-inline-form {
+    flex-direction: column;
+  }
+  .admin-inline-form button {
+    width: 100%;
+  }
+  table {
+    font-size: 13px;
+  }
 }

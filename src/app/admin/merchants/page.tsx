@@ -1,7 +1,8 @@
 "use client";
+import LoadingSpinner from "@/components/LoadingSpinner";
 
 import { useEffect, useState } from "react";
-import { apiFetch } from "@/lib/api";
+import { apiFetch, apiPatch, apiPost } from "@/lib/api";
 
 type RiskTier = "unverified" | "standard" | "established" | "enterprise";
 
@@ -16,6 +17,7 @@ interface Merchant {
 }
 
 const RISK_TIERS: RiskTier[] = ["unverified", "standard", "established", "enterprise"];
+const REASON_MAX_LENGTH = 500;
 
 function formatDate(iso: string): string {
   return formatUtcTimestamp(iso);
@@ -29,22 +31,17 @@ function shortAddress(address: string | null): string {
 export default function AdminMerchantsPage() {
   const [merchants, setMerchants] = useState<Merchant[]>([]);
   const [loading, setLoading] = useState(true);
-  const [loadError, setLoadError] = useState(false);
+  const [loadingMore, setLoadingMore] = useState(false);
   const [pendingId, setPendingId] = useState<string | null>(null);
   const [error, setError] = useState("");
+  const inFlight = useRef(false);
 
   async function load() {
-    setLoadError(false);
     try {
       const data = await apiFetch<Merchant[]>("/admin/merchants");
-      if (data === null) {
-        setLoadError(true);
-      } else {
-        setMerchants(data);
-      }
+      setMerchants(data);
     } catch (err) {
       console.error("[konfirm admin] merchants load failed", err);
-      setLoadError(true);
     } finally {
       setLoading(false);
     }
@@ -56,70 +53,84 @@ export default function AdminMerchantsPage() {
     })();
   }, []);
 
+  async function loadMore() {
+    setLoadingMore(true);
+    await load(merchants.length);
+  }
+
   async function sendPasswordReset(merchant: Merchant) {
+    if (inFlight.current) return;
     if (!window.confirm(`Email a password-reset link to ${merchant.email}?`)) return;
-    const reason = window.prompt("Why? Required, shown in the activity log:", "");
+    const reason = window.prompt(
+      `Why? Required, shown in the activity log (max ${REASON_MAX_LENGTH} chars):`,
+      ""
+    );
     if (!reason || reason.trim().length < 3) {
       setError("A reason of at least 3 characters is needed to send a reset.");
+      return;
+    }
+    if (reason.trim().length > REASON_MAX_LENGTH) {
+      setError(`Reason must be ${REASON_MAX_LENGTH} characters or fewer (was ${reason.trim().length}).`);
       return;
     }
     setPendingId(merchant.id);
     setError("");
     try {
-      const res = await fetch(`${API_BASE}/admin/merchants/${merchant.id}/password-reset`, {
-        method: "POST",
-        credentials: "include",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ reason: reason.trim() }),
-      });
-      if (!res.ok) {
-        const body = await res.json().catch(() => ({}));
-        throw new Error(body.message || "Could not send the reset email.");
-      }
+      await apiPost(`/admin/merchants/${merchant.id}/password-reset`, { reason: reason.trim() });
       setError("");
       window.alert(`Reset link sent to ${merchant.email}.`);
     } catch (err) {
       reportError(err, { action: "admin.merchant.password_reset", merchantId: merchant.id });
       setError(err instanceof Error ? err.message : "Could not send the reset email.");
     } finally {
+      inFlight.current = false;
       setPendingId(null);
     }
   }
 
   async function toggleStatus(merchant: Merchant) {
+    if (inFlight.current) return;
     const nextStatus = merchant.status === "suspended" ? "active" : "suspended";
     const verb = nextStatus === "suspended" ? "suspend" : "reactivate";
-    if (!window.confirm(`${verb === "suspend" ? "Suspend" : "Reactivate"} ${merchant.name} (${merchant.email})?`)) return;
+    const confirmMessage =
+      nextStatus === "suspended"
+        ? `Suspend ${merchant.name} (${merchant.email})?\n\nWhile suspended, this merchant cannot sign in to the dashboard or receive new payments; their existing links stop accepting payments until they're reactivated.`
+        : `Reactivate ${merchant.name} (${merchant.email})?\n\nThis restores their ability to sign in and accept payments.`;
+    if (!window.confirm(confirmMessage)) return;
 
     let reason: string | null = "";
     if (verb === "suspend") {
-      reason = window.prompt("Reason (optional, shown in the activity log):", "");
+      reason = window.prompt(
+        `Reason (optional, shown in the activity log, max ${REASON_MAX_LENGTH} chars):`,
+        ""
+      );
       if (reason === null) return;
+      if (reason.trim().length > REASON_MAX_LENGTH) {
+        setError(`Reason must be ${REASON_MAX_LENGTH} characters or fewer (was ${reason.trim().length}).`);
+        return;
+      }
     }
 
+    inFlight.current = true;
     setPendingId(merchant.id);
     setError("");
     try {
-      const res = await fetch(`${API_BASE}/admin/merchants/${merchant.id}/status`, {
-        method: "PATCH",
-        credentials: "include",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ status: nextStatus, reason: reason || undefined }),
+      await apiPatch(`/admin/merchants/${merchant.id}/status`, {
+        status: nextStatus,
+        reason: reason || undefined,
       });
-      if (!res.ok) {
-        const body = await res.json().catch(() => ({}));
-        throw new Error(body.message || `Could not ${verb} this merchant.`);
-      }
       await load();
     } catch (err) {
       reportError(err, { action: "admin.merchant.status_change", merchantId: merchant.id, status: nextStatus });
       setError(err instanceof Error ? err.message : `Could not ${verb} this merchant.`);
     } finally {
+      inFlight.current = false;
       setPendingId(null);
     }
   }
 
   async function changeTier(merchant: Merchant, riskTier: RiskTier) {
+    if (inFlight.current) return;
     if (riskTier === merchant.risk_tier) return;
     // This changes what tier a merchant is TREATED as, not their actual
     // verification status — there's no identity/KYC check behind this yet,
@@ -131,24 +142,17 @@ export default function AdminMerchantsPage() {
     )
       return;
 
+    inFlight.current = true;
     setPendingId(merchant.id);
     setError("");
     try {
-      const res = await fetch(`${API_BASE}/admin/merchants/${merchant.id}/tier`, {
-        method: "PATCH",
-        credentials: "include",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ risk_tier: riskTier }),
-      });
-      if (!res.ok) {
-        const body = await res.json().catch(() => ({}));
-        throw new Error(body.message || "Could not change this merchant's tier.");
-      }
+      await apiPatch(`/admin/merchants/${merchant.id}/tier`, { risk_tier: riskTier });
       await load();
     } catch (err) {
       reportError(err, { action: "admin.merchant.tier_change", merchantId: merchant.id, riskTier });
       setError(err instanceof Error ? err.message : "Could not change this merchant's tier.");
     } finally {
+      inFlight.current = false;
       setPendingId(null);
     }
   }
@@ -159,7 +163,7 @@ export default function AdminMerchantsPage() {
 
       <div className="admin-section">
         {loading ? (
-          <div className="empty">Loading…</div>
+          <LoadingSpinner />
         ) : loadError ? (
           <div className="empty">Could not load merchants — try again.</div>
         ) : merchants.length === 0 ? (
@@ -189,6 +193,7 @@ export default function AdminMerchantsPage() {
                     </td>
                     <td>
                       <select
+                        aria-label="Risk tier"
                         value={m.risk_tier}
                         disabled={pendingId === m.id}
                         onChange={(e) => changeTier(m, e.target.value as RiskTier)}
@@ -200,25 +205,40 @@ export default function AdminMerchantsPage() {
                         ))}
                       </select>
                     </td>
-                    <td className="mono">{shortAddress(m.stellar_base_address)}</td>
+                    <td className="mono" title={m.stellar_base_address ?? undefined}>{shortAddress(m.stellar_base_address)}</td>
                     <td>{formatDate(m.created_at)}</td>
                     <td>
-                      <button type="button" disabled={pendingId === m.id} onClick={() => toggleStatus(m)}>
-                        {m.status === "suspended" ? "Reactivate" : "Suspend"}
-                      </button>{" "}
-                      <button
-                        type="button"
-                        disabled={pendingId === m.id || m.status !== "active"}
-                        onClick={() => sendPasswordReset(m)}
-                        title={m.status !== "active" ? "Reactivate the account first" : undefined}
-                      >
-                        Send reset
-                      </button>
+                      <div className="button-group">
+                        <button type="button" disabled={pendingId === m.id} onClick={() => toggleStatus(m)}>
+                          {m.status === "suspended" ? "Reactivate" : "Suspend"}
+                        </button>
+                        <button
+                          type="button"
+                          disabled={pendingId === m.id || m.status !== "active"}
+                          onClick={() => sendPasswordReset(m)}
+                          title={m.status !== "active" ? "Reactivate the account first" : undefined}
+                        >
+                          Send reset
+                        </button>
+                      </div>
                     </td>
                   </tr>
                 ))}
               </tbody>
             </table>
+          </div>
+        )}
+        {!loading && merchants.length > 0 && (
+          <div className="admin-pagination">
+            <span>
+              Showing {merchants.length} merchant{merchants.length === 1 ? "" : "s"}
+              {merchants.length % PAGE_SIZE === 0 ? " — there may be more" : ""}
+            </span>
+            {merchants.length % PAGE_SIZE === 0 && (
+              <button type="button" disabled={loadingMore} onClick={loadMore}>
+                {loadingMore ? "Loading…" : "Load more"}
+              </button>
+            )}
           </div>
         )}
         {error && <div className="status error">{error}</div>}
