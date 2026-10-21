@@ -1,4 +1,5 @@
 "use client";
+import LoadingSpinner from "@/components/LoadingSpinner";
 
 import { useEffect, useState } from "react";
 import { apiFetch } from "@/lib/api";
@@ -26,16 +27,27 @@ export default function AdminTreasuryPage() {
   const [status, setStatus] = useState<TreasuryStatus | null>(null);
   const [loading, setLoading] = useState(true);
 
+  async function load() {
+    setLoading(true);
+    const result = await apiFetch<TreasuryStatus>("/admin/treasury/status");
+    if (result.ok) setStatus(result.data);
+    setLoading(false);
+  }
+
   useEffect(() => {
-    (async () => {
-      const result = await apiFetch<TreasuryStatus>("/admin/treasury/status");
-      if (result.ok) setStatus(result.data);
-      setLoading(false);
-    })();
+    load();
   }, []);
 
   if (loading) return <div className="empty">Loading…</div>;
-  if (!status) return <div className="empty">Could not load treasury status.</div>;
+  if (!status)
+    return (
+      <div className="empty">
+        Could not load treasury status.{" "}
+        <button type="button" onClick={load}>
+          Try again
+        </button>
+      </div>
+    );
 
   return (
     <div>
@@ -59,7 +71,7 @@ export default function AdminTreasuryPage() {
           <div className="stat-card">
             <div className="stat-label">USDC balance</div>
             <div className={`stat-value ${status.reachable ? "" : "stat-bad"}`}>
-              {status.reachable ? `$${status.usdc_balance}` : "unreachable"}
+              {status.reachable ? `$${Number(status.usdc_balance).toFixed(2)}` : "unreachable"}
             </div>
           </div>
           <div className="stat-card">
@@ -96,7 +108,7 @@ export default function AdminTreasuryPage() {
       </div>
 
       <div className="admin-section">
-        <h2>Signers ({status.threshold})</h2>
+        <h2>Signers ({status.signers.length})</h2>
         <div className="admin-table-wrap">
           <table className="admin-table">
             <thead>
@@ -107,7 +119,7 @@ export default function AdminTreasuryPage() {
             <tbody>
               {status.signers.map((s) => (
                 <tr key={s}>
-                  <td className="mono">{shortAddress(s)}</td>
+                  <td className="mono" title={s}>{shortAddress(s)}</td>
                 </tr>
               ))}
             </tbody>

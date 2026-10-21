@@ -17,6 +17,8 @@ const NAV_GROUPS: { label: string; items: { href: string; label: string }[] }[] 
     label: "Payments",
     items: [
       { href: "/admin/payments", label: "Payments" },
+      { href: "/admin/fee-revenue", label: "Fee Revenue" },
+      { href: "/admin/fees-owed", label: "Fees Owed" },
       { href: "/admin/links", label: "Payment Links" },
       { href: "/admin/cashouts", label: "Cashouts" },
     ],

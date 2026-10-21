@@ -1,4 +1,5 @@
 "use client";
+import LoadingSpinner from "@/components/LoadingSpinner";
 
 import { useEffect, useRef, useState } from "react";
 import { apiFetch, apiPatch } from "@/lib/api";
@@ -28,7 +29,10 @@ function formatDate(iso: string | null): string {
 
 export default function AdminBazaarPage() {
   const [listings, setListings] = useState<Listing[]>([]);
-  const [filter, setFilter] = useState<"" | ListingStatus>("pending");
+  const [filter, setFilter] = useState<"" | ListingStatus>(() => {
+    if (typeof window === "undefined") return "pending";
+    return (sessionStorage.getItem("admin-bazaar-filter") as "" | ListingStatus) ?? "pending";
+  });
   const [loading, setLoading] = useState(true);
   const [pendingId, setPendingId] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
@@ -48,6 +52,7 @@ export default function AdminBazaarPage() {
   }
 
   useEffect(() => {
+    sessionStorage.setItem("admin-bazaar-filter", filter);
     (async () => {
       await load(filter);
     })();
@@ -98,7 +103,7 @@ export default function AdminBazaarPage() {
 
       <div className="admin-section">
         {loading ? (
-          <div className="empty">Loading…</div>
+          <LoadingSpinner />
         ) : error ? (
           <div className="empty">Could not load listings — try again.</div>
         ) : listings.length === 0 ? (
@@ -137,14 +142,14 @@ export default function AdminBazaarPage() {
                     <td>{formatDate(l.created_at)}</td>
                     <td>
                       {l.status === "pending" && (
-                        <>
+                        <div className="button-group">
                           <button type="button" disabled={pendingId === l.id} onClick={() => handleReview(l, "approved")}>
                             Approve
-                          </button>{" "}
+                          </button>
                           <button type="button" disabled={pendingId === l.id} onClick={() => handleReview(l, "rejected")}>
                             Reject
                           </button>
-                        </>
+                        </div>
                       )}
                     </td>
                   </tr>

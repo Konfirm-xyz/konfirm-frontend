@@ -1,27 +1,12 @@
-"use client";
-
-import { use, useEffect, useRef, useState } from "react";
 import type { Metadata } from "next";
-import freighterApi from "@stellar/freighter-api";
-import qrcode from "qrcode-generator";
 import { API_BASE } from "@/lib/api";
-import { reportError } from "@/lib/report-error";
-import { useBeforeUnload } from "@/lib/use-before-unload";
+import CheckoutClient from "./checkout-client";
 
-const HORIZON_URL = "https://horizon-testnet.stellar.org";
-
-interface LinkData {
+interface LinkPublic {
   merchant_name: string;
   description: string | null;
   amount_usdc: string;
-  fee_usdc: string | null;
   currency: string;
-  stellar_base_address: string;
-}
-
-interface ConfirmedPayment {
-  tx_hash: string;
-  muxed_id: string;
 }
 
 const STAGE = {
@@ -74,6 +59,8 @@ export default function CheckoutPage({ params }: { params: Promise<{ linkId: str
   const { linkId } = use(params);
 
   const [loadingText, setLoadingText] = useState("Loading…");
+  const [notFound, setNotFound] = useState(false);
+  const [retryKey, setRetryKey] = useState(0);
   const [linkData, setLinkData] = useState<LinkData | null>(null);
   const [showQr, setShowQr] = useState(true);
   const [qrSvg, setQrSvg] = useState("");
@@ -240,12 +227,15 @@ export default function CheckoutPage({ params }: { params: Promise<{ linkId: str
     // must be able to confirm rather than silently no-op.
     alreadyConfirmed.current = false;
     sharedMuxedId.current = null;
+    setNotFound(false);
+    setLoadingText("Loading…");
 
     async function init() {
       const res = await fetch(`${API_BASE}/links/${linkId}/public`);
       if (cancelledRef.current) return;
       if (!res.ok) {
         setLoadingText("This payment link could not be found.");
+        setNotFound(true);
         return;
       }
       const data: LinkData = await res.json();
@@ -279,12 +269,13 @@ export default function CheckoutPage({ params }: { params: Promise<{ linkId: str
       cancelledRef.current = true;
     };
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [linkId]);
+  }, [linkId, retryKey]);
 
   function formatCurrency(value: string, currency: string): string {
     const str = Number(value).toFixed(2);
     return currency === "USDC" ? `$${str}` : `${str} ${currency}`;
   }
+}
 
   const amountDisplay = linkData ? formatCurrency(linkData.amount_usdc, linkData.currency) : "";
   const feeUsdc = linkData?.fee_usdc ? Number(linkData.fee_usdc) : 0;
@@ -305,7 +296,19 @@ export default function CheckoutPage({ params }: { params: Promise<{ linkId: str
           {linkData ? `Pay ${linkData.merchant_name}` : "Checkout"}
         </h1>
 
-        {!linkData && !confirmed && <div>{loadingText}</div>}
+        {!linkData && !confirmed && (
+          <div>
+            {loadingText}
+            {notFound && (
+              <>
+                {" "}
+                <button type="button" onClick={() => setRetryKey((k) => k + 1)}>
+                  Try again
+                </button>
+              </>
+            )}
+          </div>
+        )}
 
         {linkData && !confirmed && (
           <div>
