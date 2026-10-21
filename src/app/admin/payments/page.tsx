@@ -21,6 +21,7 @@ interface Payment {
 }
 
 const STATUS_OPTIONS: PaymentStatus[] = ["paid", "held", "disputed"];
+const REASON_MAX_LENGTH = 500;
 
 // Why the reconciler held a payment, in plain words for the reviewer.
 const FLAG_LABEL: Record<string, string> = {
@@ -105,12 +106,16 @@ export default function AdminPaymentsPage() {
     if (!window.confirm(`${consequence}\n\nAre you sure?`)) return;
 
     const reason = window.prompt(
-      `Reason for marking this payment "${status}" (required, shown in the activity log):`,
+      `Reason for marking this payment "${status}" (required, shown in the activity log, max ${REASON_MAX_LENGTH} chars):`,
       ""
     );
     if (reason === null) return;
     if (!reason.trim()) {
       setError("A reason is required for every payment status change.");
+      return;
+    }
+    if (reason.trim().length > REASON_MAX_LENGTH) {
+      setError(`Reason must be ${REASON_MAX_LENGTH} characters or fewer (was ${reason.trim().length}).`);
       return;
     }
 
@@ -180,8 +185,8 @@ export default function AdminPaymentsPage() {
                       <div style={{ color: "var(--text-hi)" }}>{p.merchant_name}</div>
                       <div className="mono">{p.merchant_email}</div>
                     </td>
-                    <td className="mono">{formatAmount(p.amount_usdc, p.asset_code, "en-US")}</td>
-                    <td className="mono">{shortAddress(p.payer_address)}</td>
+                    <td className="mono">{formatAmount(p.amount_usdc, p.asset_code)}</td>
+                    <td className="mono" title={p.payer_address}>{shortAddress(p.payer_address)}</td>
                     <td>
                       <span className={`status-pill ${p.status}`}>{p.status}</span>
                       {p.flag_reason && (

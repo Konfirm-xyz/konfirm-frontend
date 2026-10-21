@@ -97,6 +97,7 @@ function SignupForm() {
               autoComplete="organization"
               autoFocus
               required
+              maxLength={120}
               value={name}
               onChange={(e) => setName(e.target.value)}
             />

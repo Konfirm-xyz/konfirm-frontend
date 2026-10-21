@@ -17,6 +17,7 @@ interface Merchant {
 }
 
 const RISK_TIERS: RiskTier[] = ["unverified", "standard", "established", "enterprise"];
+const REASON_MAX_LENGTH = 500;
 
 function formatDate(iso: string): string {
   return formatUtcTimestamp(iso);
@@ -60,12 +61,18 @@ export default function AdminMerchantsPage() {
   async function sendPasswordReset(merchant: Merchant) {
     if (inFlight.current) return;
     if (!window.confirm(`Email a password-reset link to ${merchant.email}?`)) return;
-    const reason = window.prompt("Why? Required, shown in the activity log:", "");
+    const reason = window.prompt(
+      `Why? Required, shown in the activity log (max ${REASON_MAX_LENGTH} chars):`,
+      ""
+    );
     if (!reason || reason.trim().length < 3) {
       setError("A reason of at least 3 characters is needed to send a reset.");
       return;
     }
-    inFlight.current = true;
+    if (reason.trim().length > REASON_MAX_LENGTH) {
+      setError(`Reason must be ${REASON_MAX_LENGTH} characters or fewer (was ${reason.trim().length}).`);
+      return;
+    }
     setPendingId(merchant.id);
     setError("");
     try {
@@ -93,8 +100,15 @@ export default function AdminMerchantsPage() {
 
     let reason: string | null = "";
     if (verb === "suspend") {
-      reason = window.prompt("Reason (optional, shown in the activity log):", "");
+      reason = window.prompt(
+        `Reason (optional, shown in the activity log, max ${REASON_MAX_LENGTH} chars):`,
+        ""
+      );
       if (reason === null) return;
+      if (reason.trim().length > REASON_MAX_LENGTH) {
+        setError(`Reason must be ${REASON_MAX_LENGTH} characters or fewer (was ${reason.trim().length}).`);
+        return;
+      }
     }
 
     inFlight.current = true;
@@ -191,7 +205,7 @@ export default function AdminMerchantsPage() {
                         ))}
                       </select>
                     </td>
-                    <td className="mono">{shortAddress(m.stellar_base_address)}</td>
+                    <td className="mono" title={m.stellar_base_address ?? undefined}>{shortAddress(m.stellar_base_address)}</td>
                     <td>{formatDate(m.created_at)}</td>
                     <td>
                       <div className="button-group">
