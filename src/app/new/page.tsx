@@ -160,7 +160,11 @@ export default function NewPaymentPage() {
 
             <div className="amount-row">
               <span className={`dollar${currency === "XLM" ? " hidden" : ""}`}>{CURRENCY_SYMBOLS[currency]}</span>
+              <label htmlFor="amount-input" className="visually-hidden">
+                Payment amount
+              </label>
               <input
+                id="amount-input"
                 className="amount-input"
                 type="text"
                 inputMode="decimal"

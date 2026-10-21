@@ -47,10 +47,8 @@ const PAGE_SIZE = 50;
 
 export default function AdminPaymentsPage() {
   const [payments, setPayments] = useState<Payment[]>([]);
-  const [filter, setFilter] = useState<"" | PaymentStatus>(() => {
-    if (typeof window === "undefined") return "";
-    return (sessionStorage.getItem("admin-payments-filter") as "" | PaymentStatus) || "";
-  });
+  const [filter, setFilter] = useState<"" | PaymentStatus>("");
+  const [search, setSearch] = useState("");
   const [loading, setLoading] = useState(true);
   const [loadingMore, setLoadingMore] = useState(false);
   const [pendingId, setPendingId] = useState<string | null>(null);
@@ -140,6 +138,17 @@ export default function AdminPaymentsPage() {
     }
   }
 
+  const q = search.trim().toLowerCase();
+  const visible = q
+    ? payments.filter(
+        (p) =>
+          p.merchant_name.toLowerCase().includes(q) ||
+          p.merchant_email.toLowerCase().includes(q) ||
+          p.payer_address.toLowerCase().includes(q) ||
+          p.tx_hash.toLowerCase().includes(q),
+      )
+    : payments;
+
   return (
     <div>
       <h1>Payments</h1>
@@ -156,6 +165,16 @@ export default function AdminPaymentsPage() {
             ))}
           </select>
         </div>
+        <div className="field">
+          <label htmlFor="payments-search">Search</label>
+          <input
+            id="payments-search"
+            type="search"
+            placeholder="Merchant, payer address, or tx hash…"
+            value={search}
+            onChange={(e) => setSearch(e.target.value)}
+          />
+        </div>
       </div>
 
       <div className="admin-section">
@@ -163,7 +182,7 @@ export default function AdminPaymentsPage() {
           <LoadingSpinner stallThreshold={3000} />
         ) : error && payments.length === 0 ? (
           <div className="empty">Could not load payments — try again.</div>
-        ) : payments.length === 0 ? (
+        ) : visible.length === 0 ? (
           <div className="empty">No payments match this filter.</div>
         ) : (
           <div className="admin-table-wrap">
@@ -179,7 +198,7 @@ export default function AdminPaymentsPage() {
                 </tr>
               </thead>
               <tbody>
-                {payments.map((p) => (
+                {visible.map((p) => (
                   <tr key={p.id}>
                     <td>
                       <div style={{ color: "var(--text-hi)" }}>{p.merchant_name}</div>

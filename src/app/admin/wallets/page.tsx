@@ -23,6 +23,7 @@ const PAGE_SIZE = 50;
 
 export default function AdminWalletsPage() {
   const [wallets, setWallets] = useState<WalletRow[]>([]);
+  const [search, setSearch] = useState("");
   const [loading, setLoading] = useState(true);
   const [loadingMore, setLoadingMore] = useState(false);
   const [offset, setOffset] = useState(0);
@@ -41,17 +42,8 @@ export default function AdminWalletsPage() {
     })();
   }, []);
 
-  async function loadMore() {
-    setLoadingMore(true);
-    const res = await fetch(`${API_BASE}/admin/wallets?limit=${PAGE_SIZE}&offset=${offset}`, { credentials: "include" });
-    if (res.ok) {
-      const rows: WalletRow[] = await res.json();
-      setWallets((prev) => [...prev, ...rows]);
-      setOffset((prev) => prev + rows.length);
-      setHasMore(rows.length === PAGE_SIZE);
-    }
-    setLoadingMore(false);
-  }
+  const q = search.trim().toLowerCase();
+  const visible = q ? wallets.filter((w) => w.address.toLowerCase().includes(q)) : wallets;
 
   return (
     <div>
@@ -61,12 +53,25 @@ export default function AdminWalletsPage() {
         — an address showing both &quot;Payer&quot; and &quot;Blocked&quot; is worth a second look.
       </p>
 
+      <div className="admin-inline-form">
+        <div className="field">
+          <label htmlFor="wallets-search">Search by address</label>
+          <input
+            id="wallets-search"
+            type="search"
+            placeholder="Stellar address…"
+            value={search}
+            onChange={(e) => setSearch(e.target.value)}
+          />
+        </div>
+      </div>
+
       {loading ? (
         <LoadingSpinner />
       ) : error ? (
         <div className="empty">Could not load wallets — try again.</div>
-      ) : wallets.length === 0 ? (
-        <div className="empty">No addresses seen yet.</div>
+      ) : visible.length === 0 ? (
+        <div className="empty">{wallets.length === 0 ? "No addresses seen yet." : "No wallets match this search."}</div>
       ) : (
         <div className="admin-section">
           <p className="hint">
@@ -82,7 +87,7 @@ export default function AdminWalletsPage() {
                 </tr>
               </thead>
               <tbody>
-                {wallets.map((w) => (
+                {visible.map((w) => (
                   <tr key={w.address}>
                     <td className="mono" title={w.address}>{shortAddress(w.address)}</td>
                     <td>
