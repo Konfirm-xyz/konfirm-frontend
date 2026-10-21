@@ -195,6 +195,10 @@ select:focus {
 
 button {
   width: 100%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  min-height: 48px;
   padding: 14px;
   min-height: 48px;
   border-radius: 999px;
@@ -748,6 +752,9 @@ a.txlink {
   margin-bottom: 2px;
 }
 .admin-sidebar-nav a {
+  display: flex;
+  align-items: center;
+  min-height: 48px;
   padding: 10px 12px;
   border-radius: 8px;
   color: var(--text-lo);
@@ -772,7 +779,7 @@ a.txlink {
 }
 .admin-sidebar-footer button {
   width: auto;
-  padding: 0;
+  padding: 10px 4px;
   font-size: 13px;
   color: var(--text-lo);
   background: none;
