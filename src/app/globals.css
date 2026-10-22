@@ -933,6 +933,9 @@ a.txlink {
 .admin-table tr:last-child td {
   border-bottom: none;
 }
+.mono {
+  font-family: ui-monospace, "SF Mono", Menlo, monospace;
+}
 .admin-table td.mono {
   font-variant-numeric: tabular-nums;
   font-family: ui-monospace, "SF Mono", Menlo, monospace;
