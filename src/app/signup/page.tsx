@@ -160,7 +160,7 @@ function SignupForm() {
 }
 
 // useSearchParams() requires a Suspense boundary in the app router — same
-// pattern already used in src/app/activity/page.tsx for the same reason.
+// pattern already used in src/app/reset-password/page.tsx for the same reason.
 export default function SignupPage() {
   return (
     <Suspense fallback={null}>
