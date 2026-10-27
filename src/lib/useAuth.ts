@@ -50,31 +50,51 @@ export function useRequireAuth<T = unknown>(options: UseRequireAuthOptions<T>): 
     prevSkipRef.current = Boolean(skip);
     if (skip) return;
     let cancelled = false;
-    (async () => {
-      try {
-        const res = await fetch(`${API_BASE}${meEndpoint}`, { credentials: "include" });
-        if (cancelled) return;
-        if (!res.ok) {
+
+    function check() {
+      (async () => {
+        try {
+          const res = await fetch(`${API_BASE}${meEndpoint}`, { credentials: "include" });
+          if (cancelled) return;
+          if (!res.ok) {
+            router.push(loginPath);
+            return;
+          }
+          // Guard against a 200 with an empty/non-JSON body: an unguarded
+          // res.json() would throw and leave `resolved` false forever.
+          const body = await res.json().catch(() => null);
+          if (cancelled) return;
+          if (body === null) {
+            router.push(loginPath);
+            return;
+          }
+          setData(select ? select(body) : (body as T));
+          setResolved(true);
+        } catch {
+          // Any other unexpected failure (network error, select() throwing)
+          // must still reach a terminal state rather than hanging the gate.
+          if (cancelled) return;
           router.push(loginPath);
-          return;
         }
-        // Guard against a 200 with an empty/non-JSON body: an unguarded
-        // res.json() would throw and leave `resolved` false forever.
-        const body = await res.json().catch(() => null);
-        if (cancelled) return;
-        if (body === null) {
-          router.push(loginPath);
-          return;
-        }
-        setData(select ? select(body) : (body as T));
-        setResolved(true);
-      } catch {
-        // Any other unexpected failure (network error, select() throwing)
-        // must still reach a terminal state rather than hanging the gate.
-        if (cancelled) return;
-        router.push(loginPath);
+      })();
+    }
+
+    check();
+
+    // When a page is restored from the back/forward cache (bfcache), the
+    // component tree is reused as-is and this effect does NOT re-run, so a
+    // stale session could otherwise keep rendering a previously-authed
+    // admin page without re-checking auth. `pageshow` fires on every
+    // navigation, including bfcache restores, and `event.persisted` is
+    // true only for the latter — re-run the auth check in that case.
+    function onPageShow(event: PageTransitionEvent) {
+      if (event.persisted) {
+        setResolved(false);
+        check();
       }
-    })();
+    }
+    window.addEventListener("pageshow", onPageShow);
+
     return () => {
       cancelled = true;
       window.removeEventListener("pageshow", onPageShow);

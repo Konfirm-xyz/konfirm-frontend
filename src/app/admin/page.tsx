@@ -2,7 +2,7 @@
 import LoadingSpinner from "@/components/LoadingSpinner";
 
 import { useEffect, useState } from "react";
-import { API_BASE } from "@/lib/api";
+import { API_BASE, apiFetch } from "@/lib/api";
 import { formatAmount } from "@/lib/format";
 
 interface Stats {
@@ -63,7 +63,7 @@ function VolumeChart({
   const lastDate = points[points.length - 1]?.date;
   const rangeLabel =
     firstDate && lastDate ? `${firstDate} to ${lastDate}` : "last 7 days";
-  const ariaLabel = `Payment volume chart, ${rangeLabel}: ${formatUsd(totalUsdc)} total net USDC across ${points.length} days.`;
+  const ariaLabel = `Payment volume chart, ${rangeLabel}: ${formatAmount(totalUsdc, "USDC")} total net USDC across ${points.length} days.`;
 
   return (
     <svg
@@ -98,7 +98,7 @@ function VolumeTable({ points }: { points: { date: string; net_usdc: string }[] 
         {points.map((p) => (
           <tr key={p.date}>
             <th scope="row">{p.date}</th>
-            <td>{formatUsd(p.net_usdc)}</td>
+            <td>{formatAmount(p.net_usdc, "USDC")}</td>
           </tr>
         ))}
       </tbody>

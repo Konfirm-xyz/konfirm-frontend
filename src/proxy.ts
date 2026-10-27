@@ -37,6 +37,13 @@ export function proxy(request: NextRequest) {
   return NextResponse.next();
 }
 
+// Next's compiler statically parses this array at build time without
+// executing any JS — a spread of MERCHANT_PROTECTED_PATHS here (even
+// though it's a plain const two lines up) isn't something it can
+// evaluate, and fails every request with a 500 ("can't recognize the
+// exported `config` field"). Must be a literal; kept in sync with
+// MERCHANT_PROTECTED_PATHS by hand, which proxy()'s own matching logic
+// above still uses as the single source of truth for behavior.
 export const config = {
-  matcher: ["/admin/:path*", ...MERCHANT_PROTECTED_PATHS],
+  matcher: ["/admin/:path*", "/new", "/activity", "/cashout", "/referrals"],
 };

@@ -1,5 +1,4 @@
-import type { Metadata } from "next";
-import AdminShell from "./AdminShell";
+"use client";
 
 import { useState } from "react";
 import { usePathname, useRouter } from "next/navigation";
@@ -53,7 +52,7 @@ const NAV_GROUPS = [
   },
 ];
 
-export default function AdminShell({ children }: { children: React.ReactNode }) {
+export default function AdminLayout({ children }: { children: React.ReactNode }) {
   const pathname = usePathname();
   const router = useRouter();
   const isLoginPage = pathname === "/admin/login";
