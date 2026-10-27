@@ -1,8 +1,9 @@
 "use client";
+import LoadingSpinner from "@/components/LoadingSpinner";
 
-import { useCallback, useEffect, useState, type FormEvent } from "react";
-import freighterApi from "@stellar/freighter-api";
-import { apiFetch, apiPost, type ApiResult } from "@/lib/api";
+import { useEffect, useState } from "react";
+import { apiFetch } from "@/lib/api";
+import { explorerUrl } from "@/lib/stellar-explorer";
 
 interface TreasuryStatus {
   contract_id: string;
@@ -11,33 +12,11 @@ interface TreasuryStatus {
   usdc_balance: string | null;
   reachable: boolean;
   wired_into_checkout: boolean;
-}
-
-interface SettlementRow {
-  onchain_settlement_id: string;
-  merchant_address: string;
-  amount: string;
-  approvals_count: number;
-  status: string;
-  created_at: string;
-  updated_at: string;
-}
-
-interface BuiltTx {
-  build_token: string;
-  unsigned_xdr: string;
-  network_passphrase: string;
-  tx_hash: string;
-}
-
-// Local-storage key for "which signer identity am I acting as in Freighter
-// right now" -- a convenience only. The backend never trusts this value for
-// anything; every build endpoint takes the address explicitly and the
-// contract itself checks it's a real signer via require_signer.
-const SIGNER_STORAGE_KEY = "konfirm_admin_treasury_signer";
-
-function explorerUrl(id: string): string {
-  return `https://stellar.expert/explorer/testnet/contract/${id}`;
+  // Optional: not yet returned by the backend. Once
+  // admin-treasury.service.ts includes it in the response, this page will
+  // automatically link to the correct network's explorer instead of
+  // falling back to testnet.
+  network?: string;
 }
 
 function shortAddress(address: string): string {
@@ -89,170 +68,27 @@ export default function AdminTreasuryPage() {
   const [busyAction, setBusyAction] = useState<string | null>(null);
   const [message, setMessage] = useState<{ text: string; error: boolean } | null>(null);
 
-  useEffect(() => {
-    (() => {
-      try {
-        const stored = window.localStorage.getItem(SIGNER_STORAGE_KEY);
-        if (stored) setActingAs(stored);
-      } catch {
-        // ignore
-      }
-    })();
-  }, []);
-
-  useEffect(() => {
-    try {
-      if (actingAs) window.localStorage.setItem(SIGNER_STORAGE_KEY, actingAs);
-    } catch {
-      // Best-effort convenience only -- a private window or blocked
-      // storage just means the admin re-selects it next time.
-    }
-  }, [actingAs]);
-
-  const loadStatus = useCallback(async () => {
+  async function load() {
+    setLoading(true);
     const result = await apiFetch<TreasuryStatus>("/admin/treasury/status");
     if (result.ok) setStatus(result.data);
-    setLoadingStatus(false);
-  }, []);
-
-  const loadSettlements = useCallback(async () => {
-    const result = await apiFetch<SettlementRow[]>("/admin/treasury/settlements");
-    if (result.ok) setSettlements(result.data);
-    setLoadingSettlements(false);
-  }, []);
+    setLoading(false);
+  }
 
   useEffect(() => {
-    (async () => {
-      await loadStatus();
-      await loadSettlements();
-    })();
-  }, [loadStatus, loadSettlements]);
+    load();
+  }, []);
 
-  // Shared build -> Freighter sign -> submit flow, same shape as
-  // fee-settlement.tsx's settle(): build the unsigned transaction
-  // server-side, sign it in the connected wallet, submit the signed XDR
-  // back, then refresh. Konfirm never sees the signer's key.
-  async function buildSignSubmit(buildResult: ApiResult<BuiltTx>, signerAddress: string): Promise<ApiResult<SettlementRow>> {
-    if (!buildResult.ok) return buildResult;
-    const { unsigned_xdr, network_passphrase, build_token } = buildResult.data;
-    const signed = await freighterApi.signTransaction(unsigned_xdr, {
-      networkPassphrase: network_passphrase,
-      address: signerAddress,
-    });
-    if (signed.error) {
-      return { ok: false, status: 0, message: "The wallet didn't sign the transaction.", body: signed.error };
-    }
-    return apiPost<SettlementRow>("/admin/treasury/settlements/submit", {
-      signed_xdr: signed.signedTxXdr,
-      build_token,
-    });
-  }
-
-  async function handlePropose(e: FormEvent) {
-    e.preventDefault();
-    if (!/^G[A-Z2-7]{55}$/.test(actingAs.trim())) {
-      setMessage({ text: "Enter or select the signer address you're connected as in Freighter.", error: true });
-      return;
-    }
-    if (!/^G[A-Z2-7]{55}$/.test(merchantAddress.trim())) {
-      setMessage({ text: "Enter a valid merchant Stellar G... address.", error: true });
-      return;
-    }
-    if (!/^\d+(\.\d{1,7})?$/.test(amount.trim()) || Number(amount) <= 0) {
-      setMessage({ text: "Enter an amount greater than zero (up to 7 decimal places).", error: true });
-      return;
-    }
-
-    setProposing(true);
-    setMessage({ text: "Building the proposal…", error: false });
-    try {
-      const built = await apiPost<BuiltTx>("/admin/treasury/settlements/propose", {
-        proposer_address: actingAs.trim(),
-        merchant_address: merchantAddress.trim(),
-        amount: amount.trim(),
-      });
-      if (!built.ok) throw new Error(describeFailure(built));
-
-      setMessage({ text: "Approve the proposal in your wallet…", error: false });
-      const result = await buildSignSubmit(built, actingAs.trim());
-      if (!result.ok) throw new Error(describeFailure(result));
-
-      setMessage({ text: `Settlement #${result.data.onchain_settlement_id} proposed.`, error: false });
-      setMerchantAddress("");
-      setAmount("");
-      await loadSettlements();
-    } catch (err) {
-      console.error("[konfirm admin] propose settlement failed", err);
-      setMessage({ text: err instanceof Error ? err.message : "Could not propose this settlement.", error: true });
-    } finally {
-      setProposing(false);
-    }
-  }
-
-  async function handleApprove(row: SettlementRow) {
-    if (!/^G[A-Z2-7]{55}$/.test(actingAs.trim())) {
-      setMessage({ text: "Enter or select the signer address you're connected as in Freighter.", error: true });
-      return;
-    }
-    const key = `${row.onchain_settlement_id}-approve`;
-    setBusyAction(key);
-    setMessage({ text: `Building the approval for #${row.onchain_settlement_id}…`, error: false });
-    try {
-      const built = await apiPost<BuiltTx>(`/admin/treasury/settlements/${row.onchain_settlement_id}/approve`, {
-        signer_address: actingAs.trim(),
-      });
-      if (!built.ok) throw new Error(describeFailure(built));
-
-      setMessage({ text: "Approve in your wallet…", error: false });
-      const result = await buildSignSubmit(built, actingAs.trim());
-      if (!result.ok) throw new Error(describeFailure(result));
-
-      setMessage({ text: `Settlement #${row.onchain_settlement_id} approved (${result.data.approvals_count} approval${result.data.approvals_count === 1 ? "" : "s"}).`, error: false });
-      await loadSettlements();
-    } catch (err) {
-      console.error("[konfirm admin] approve settlement failed", err);
-      setMessage({ text: err instanceof Error ? err.message : "Could not approve this settlement.", error: true });
-    } finally {
-      setBusyAction(null);
-    }
-  }
-
-  async function handleExecute(row: SettlementRow) {
-    if (!/^G[A-Z2-7]{55}$/.test(actingAs.trim())) {
-      setMessage({ text: "Enter or select the signer address you're connected as in Freighter.", error: true });
-      return;
-    }
-    const key = `${row.onchain_settlement_id}-execute`;
-    setBusyAction(key);
-    setMessage({ text: `Building the execution for #${row.onchain_settlement_id}…`, error: false });
-    try {
-      const built = await apiPost<BuiltTx>(`/admin/treasury/settlements/${row.onchain_settlement_id}/execute`, {
-        caller_address: actingAs.trim(),
-      });
-      if (!built.ok) throw new Error(describeFailure(built));
-
-      setMessage({ text: "Approve in your wallet…", error: false });
-      const result = await buildSignSubmit(built, actingAs.trim());
-      if (!result.ok) throw new Error(describeFailure(result));
-
-      setMessage({ text: `Settlement #${row.onchain_settlement_id} executed — paid to the merchant.`, error: false });
-      await loadSettlements();
-    } catch (err) {
-      console.error("[konfirm admin] execute settlement failed", err);
-      // A failed execute is often expected, not a bug -- e.g. the treasury
-      // not holding enough of the payout token, or the threshold not met
-      // yet. The contract reverts the whole call rather than faking
-      // success, so the settlement stays Pending either way; re-sync shows
-      // the real state.
-      setMessage({ text: err instanceof Error ? err.message : "Could not execute this settlement.", error: true });
-      await loadSettlements();
-    } finally {
-      setBusyAction(null);
-    }
-  }
-
-  if (loadingStatus) return <div className="empty">Loading…</div>;
-  if (!status) return <div className="empty">Could not load treasury status.</div>;
+  if (loading) return <div className="empty">Loading…</div>;
+  if (!status)
+    return (
+      <div className="empty">
+        Could not load treasury status.{" "}
+        <button type="button" onClick={load}>
+          Try again
+        </button>
+      </div>
+    );
 
   return (
     <div>
@@ -276,7 +112,7 @@ export default function AdminTreasuryPage() {
           <div className="stat-card">
             <div className="stat-label">USDC balance</div>
             <div className={`stat-value ${status.reachable ? "" : "stat-bad"}`}>
-              {status.reachable ? `$${status.usdc_balance}` : "unreachable"}
+              {status.reachable ? `$${Number(status.usdc_balance).toFixed(2)}` : "unreachable"}
             </div>
           </div>
           <div className="stat-card">
@@ -302,7 +138,7 @@ export default function AdminTreasuryPage() {
             <tbody>
               <tr>
                 <td className="mono">
-                  <a href={explorerUrl(status.contract_id)} target="_blank" rel="noreferrer">
+                  <a href={explorerUrl(status.contract_id, status.network)} target="_blank" rel="noreferrer">
                     {status.contract_id}
                   </a>
                 </td>
@@ -313,7 +149,7 @@ export default function AdminTreasuryPage() {
       </div>
 
       <div className="admin-section">
-        <h2>Signers ({status.threshold})</h2>
+        <h2>Signers ({status.signers.length})</h2>
         <div className="admin-table-wrap">
           <table className="admin-table">
             <thead>
@@ -324,7 +160,7 @@ export default function AdminTreasuryPage() {
             <tbody>
               {status.signers.map((s) => (
                 <tr key={s}>
-                  <td className="mono">{shortAddress(s)}</td>
+                  <td className="mono" title={s}>{shortAddress(s)}</td>
                 </tr>
               ))}
             </tbody>
