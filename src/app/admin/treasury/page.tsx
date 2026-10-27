@@ -1,8 +1,8 @@
 "use client";
-import LoadingSpinner from "@/components/LoadingSpinner";
 
-import { useEffect, useState } from "react";
-import { apiFetch } from "@/lib/api";
+import { useEffect, useState, type FormEvent } from "react";
+import freighterApi from "@stellar/freighter-api";
+import { apiFetch, apiPost, type ApiResult } from "@/lib/api";
 import { explorerUrl } from "@/lib/stellar-explorer";
 
 interface TreasuryStatus {
@@ -17,6 +17,28 @@ interface TreasuryStatus {
   // automatically link to the correct network's explorer instead of
   // falling back to testnet.
   network?: string;
+}
+
+// Matches AdminTreasurySettlementsService.SettlementRow (konfirm-backend
+// src/admin/admin-treasury-settlements.service.ts) exactly.
+interface SettlementRow {
+  onchain_settlement_id: string;
+  merchant_address: string;
+  amount: string;
+  approvals_count: number;
+  status: string;
+  created_at: string;
+  updated_at: string;
+}
+
+// {build_token, unsigned_xdr, network_passphrase, tx_hash} -- the shape
+// every one of propose/approve/execute returns (admin-treasury-settlements
+// .controller.ts).
+interface BuiltTx {
+  build_token: string;
+  unsigned_xdr: string;
+  network_passphrase: string;
+  tx_hash: string;
 }
 
 function shortAddress(address: string): string {
@@ -69,17 +91,133 @@ export default function AdminTreasuryPage() {
   const [message, setMessage] = useState<{ text: string; error: boolean } | null>(null);
 
   async function load() {
-    setLoading(true);
+    setLoadingStatus(true);
     const result = await apiFetch<TreasuryStatus>("/admin/treasury/status");
     if (result.ok) setStatus(result.data);
-    setLoading(false);
+    setLoadingStatus(false);
+  }
+
+  async function loadSettlements() {
+    setLoadingSettlements(true);
+    const result = await apiFetch<SettlementRow[]>("/admin/treasury/settlements");
+    if (result.ok) setSettlements(result.data ?? []);
+    setLoadingSettlements(false);
   }
 
   useEffect(() => {
     load();
+    loadSettlements();
   }, []);
 
-  if (loading) return <div className="empty">Loading…</div>;
+  // Shared by propose/approve/execute: ask the connected wallet to sign
+  // the unsigned XDR a build endpoint returned, then submit it. Never
+  // signs with any key Konfirm holds -- Freighter is the only signer,
+  // same split-custody model fee-settlement.tsx already uses for a
+  // merchant's own key.
+  async function signAndSubmit(built: BuiltTx): Promise<ApiResult<SettlementRow & { tx_hash: string }>> {
+    const signed = await freighterApi.signTransaction(built.unsigned_xdr, {
+      networkPassphrase: built.network_passphrase,
+      address: actingAs,
+    });
+    if (signed.error || !signed.signedTxXdr) {
+      return { ok: false, status: 0, message: "The wallet didn't sign this transaction.", body: signed.error ?? null };
+    }
+    return apiPost<SettlementRow & { tx_hash: string }>("/admin/treasury/settlements/submit", {
+      signed_xdr: signed.signedTxXdr,
+      build_token: built.build_token,
+    });
+  }
+
+  async function handlePropose(e: FormEvent) {
+    e.preventDefault();
+    if (!actingAs) {
+      setMessage({ text: "Select which signer you're acting as first.", error: true });
+      return;
+    }
+    setProposing(true);
+    setMessage(null);
+    try {
+      const built = await apiPost<BuiltTx>("/admin/treasury/settlements/propose", {
+        proposer_address: actingAs,
+        merchant_address: merchantAddress,
+        amount,
+      });
+      if (!built.ok) {
+        setMessage({ text: describeFailure(built), error: true });
+        return;
+      }
+      setMessage({ text: "Approve the proposal in your wallet…", error: false });
+      const result = await signAndSubmit(built.data as BuiltTx);
+      if (!result.ok) {
+        setMessage({ text: describeFailure(result), error: true });
+        return;
+      }
+      setMessage({ text: `Settlement #${result.data?.onchain_settlement_id} proposed.`, error: false });
+      setMerchantAddress("");
+      setAmount("");
+      await loadSettlements();
+    } finally {
+      setProposing(false);
+    }
+  }
+
+  async function handleApprove(row: SettlementRow) {
+    if (!actingAs) {
+      setMessage({ text: "Select which signer you're acting as first.", error: true });
+      return;
+    }
+    setBusyAction(`${row.onchain_settlement_id}-approve`);
+    setMessage(null);
+    try {
+      const built = await apiPost<BuiltTx>(`/admin/treasury/settlements/${row.onchain_settlement_id}/approve`, {
+        signer_address: actingAs,
+      });
+      if (!built.ok) {
+        setMessage({ text: describeFailure(built), error: true });
+        return;
+      }
+      setMessage({ text: "Approve in your wallet…", error: false });
+      const result = await signAndSubmit(built.data as BuiltTx);
+      if (!result.ok) {
+        setMessage({ text: describeFailure(result), error: true });
+        return;
+      }
+      setMessage({ text: `Settlement #${row.onchain_settlement_id} approved.`, error: false });
+      await loadSettlements();
+    } finally {
+      setBusyAction(null);
+    }
+  }
+
+  async function handleExecute(row: SettlementRow) {
+    if (!actingAs) {
+      setMessage({ text: "Select which signer you're acting as first.", error: true });
+      return;
+    }
+    setBusyAction(`${row.onchain_settlement_id}-execute`);
+    setMessage(null);
+    try {
+      const built = await apiPost<BuiltTx>(`/admin/treasury/settlements/${row.onchain_settlement_id}/execute`, {
+        caller_address: actingAs,
+      });
+      if (!built.ok) {
+        setMessage({ text: describeFailure(built), error: true });
+        return;
+      }
+      setMessage({ text: "Approve in your wallet…", error: false });
+      const result = await signAndSubmit(built.data as BuiltTx);
+      if (!result.ok) {
+        setMessage({ text: describeFailure(result), error: true });
+        return;
+      }
+      setMessage({ text: `Settlement #${row.onchain_settlement_id} executed.`, error: false });
+      await loadSettlements();
+    } finally {
+      setBusyAction(null);
+    }
+  }
+
+  if (loadingStatus) return <div className="empty">Loading…</div>;
   if (!status)
     return (
       <div className="empty">
