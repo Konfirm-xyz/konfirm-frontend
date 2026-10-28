@@ -11,4 +11,3 @@ export default function ReferralsLayout({
 }) {
   return <>{children}</>;
 }
-</parameter>

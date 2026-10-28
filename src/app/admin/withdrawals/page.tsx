@@ -123,8 +123,8 @@ export default function AdminWithdrawalsPage() {
                         <span className="hint">unknown</span>
                       )}
                     </td>
-                    <td>{formatDate(a.last_polled_at)}</td>
-                    <td>{formatDate(a.created_at)}</td>
+                    <td>{formatUtcTimestamp(a.last_polled_at)}</td>
+                    <td>{formatUtcTimestamp(a.created_at)}</td>
                   </tr>
                 ))}
               </tbody>

@@ -36,12 +36,22 @@ export default function AdminBazaarPage() {
   const [loading, setLoading] = useState(true);
   const [pendingId, setPendingId] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
+  // Monotonically increasing id for each load() call. Used to discard a
+  // response that resolves after a newer request has already been issued,
+  // so a slow in-flight request can never clobber the result of a faster,
+  // more recent one.
+  const requestIdRef = useRef(0);
 
   async function load(status: string) {
     const requestId = ++requestIdRef.current;
     setLoading(true);
     setError(null);
     const result = await apiFetch<Listing[]>(status ? `/admin/bazaar-listings?status=${status}` : "/admin/bazaar-listings");
+    if (requestId !== requestIdRef.current) {
+      // A newer load() has been issued since this one started; drop this
+      // stale response instead of overwriting fresher data.
+      return;
+    }
     if (result.ok && result.data) {
       setListings(result.data);
     } else {

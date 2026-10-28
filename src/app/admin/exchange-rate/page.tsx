@@ -3,6 +3,7 @@ import LoadingSpinner from "@/components/LoadingSpinner";
 
 import { useEffect, useState } from "react";
 import { apiFetch } from "@/lib/api";
+import { formatUtcTimestamp } from "@/lib/format";
 
 interface LiveRate {
   rate: string | null;
@@ -29,17 +30,30 @@ export default function AdminExchangeRatePage() {
   const [live, setLive] = useState<LiveRate | null>(null);
   const [conversions, setConversions] = useState<Conversion[]>([]);
   const [loading, setLoading] = useState(true);
+  const [loadingMore, setLoadingMore] = useState(false);
+  const [hasMore, setHasMore] = useState(false);
   const [error, setError] = useState(false);
+
+  async function loadConversions(offset: number): Promise<Conversion[]> {
+    const result = await apiFetch<Conversion[]>(
+      `/admin/exchange-rate/conversions?limit=${CONVERSIONS_PAGE_SIZE}&offset=${offset}`
+    );
+    return result.ok && result.data ? result.data : [];
+  }
 
   useEffect(() => {
     (async () => {
-      const [liveData, convData] = await Promise.all([
+      const [liveResult, rows] = await Promise.all([
         apiFetch<LiveRate>("/admin/exchange-rate/live"),
-        apiFetch<Conversion[]>("/admin/exchange-rate/conversions"),
+        loadConversions(0),
       ]);
-      if (liveData) setLive(liveData);
-      if (convData) setConversions(convData);
-      if (!liveData || !convData) setError(true);
+      if (liveResult.ok && liveResult.data) setLive(liveResult.data);
+      setConversions(rows);
+      // The backend hard-caps each page at CONVERSIONS_PAGE_SIZE rows. A
+      // full page means there may be more rows beyond it; a short page
+      // means we've reached the end.
+      setHasMore(rows.length === CONVERSIONS_PAGE_SIZE);
+      setError(!liveResult.ok);
       setLoading(false);
     })();
   }, []);

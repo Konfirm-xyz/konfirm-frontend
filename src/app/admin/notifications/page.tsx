@@ -43,14 +43,18 @@ export default function AdminNotificationsPage() {
   const [loadingMore, setLoadingMore] = useState(false);
   const [offset, setOffset] = useState(0);
   const [hasMore, setHasMore] = useState(false);
+  const [error, setError] = useState(false);
 
   useEffect(() => {
     (async () => {
       const result = await apiFetch<Notification[]>(`/admin/notifications?limit=${PAGE_SIZE}&offset=0`);
-      if (result.ok) {
+      if (result.ok && result.data) {
         setItems(result.data);
         setOffset(result.data.length);
         setHasMore(result.data.length === PAGE_SIZE);
+        setError(false);
+      } else {
+        setError(true);
       }
       setLoading(false);
     })();
@@ -59,9 +63,9 @@ export default function AdminNotificationsPage() {
   async function loadMore() {
     setLoadingMore(true);
     const result = await apiFetch<Notification[]>(`/admin/notifications?limit=${PAGE_SIZE}&offset=${offset}`);
-    if (result.ok) {
-      setItems((prev) => [...prev, ...result.data]);
-      setOffset((prev) => prev + result.data.length);
+    if (result.ok && result.data) {
+      setItems((prev) => [...prev, ...result.data!]);
+      setOffset((prev) => prev + result.data!.length);
       setHasMore(result.data.length === PAGE_SIZE);
     }
     setLoadingMore(false);
@@ -114,7 +118,7 @@ export default function AdminNotificationsPage() {
             <ul className="activity-feed">
               {items.map((n) => (
                 <li key={`${n.type}-${n.id}`}>
-                  <span className="when">{formatDate(n.created_at)}</span>
+                  <span className="when">{formatUtcTimestamp(n.created_at)}</span>
                   <span className={`status-pill ${n.severity === "critical" ? "failed" : n.severity === "warning" ? "held" : "active"}`}>
                     {n.severity}
                   </span>{" "}
