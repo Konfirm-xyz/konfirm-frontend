@@ -4,7 +4,7 @@ import LoadingSpinner from "@/components/LoadingSpinner";
 import { useEffect, useRef, useState, type FormEvent } from "react";
 import { API_BASE } from "@/lib/api";
 import { reportError } from "@/lib/report-error";
-import { formatUtcTimestamp } from "@/lib/format-date";
+import { formatUtcTimestamp } from "@/lib/format";
 
 interface ReconcilerStatus {
   value: string | null;

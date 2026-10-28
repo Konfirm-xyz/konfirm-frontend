@@ -3,7 +3,7 @@ import LoadingSpinner from "@/components/LoadingSpinner";
 
 import { useEffect, useState } from "react";
 import { apiFetch } from "@/lib/api";
-import { formatAmount } from "@/lib/format";
+import { formatAmount, formatUtcTimestamp } from "@/lib/format";
 
 interface PayLink {
   id: string;
@@ -31,13 +31,17 @@ export default function AdminPayLinksPage() {
   const [loadingMore, setLoadingMore] = useState(false);
   const [offset, setOffset] = useState(0);
   const [hasMore, setHasMore] = useState(false);
+  const [error, setError] = useState(false);
 
   useEffect(() => {
     (async () => {
       const result = await apiFetch<PayLink[]>(`/admin/links?limit=${PAGE_SIZE}&offset=0`);
-      if (result.ok) {
+      if (result.ok && result.data) {
         setLinks(result.data);
         setHasMore(result.data.length === PAGE_SIZE);
+        setError(false);
+      } else {
+        setError(true);
       }
       setLoading(false);
     })();
@@ -47,8 +51,8 @@ export default function AdminPayLinksPage() {
     setLoadingMore(true);
     const nextOffset = offset + PAGE_SIZE;
     const result = await apiFetch<PayLink[]>(`/admin/links?limit=${PAGE_SIZE}&offset=${nextOffset}`);
-    if (result.ok) {
-      setLinks((prev) => [...prev, ...result.data]);
+    if (result.ok && result.data) {
+      setLinks((prev) => [...prev, ...result.data!]);
       setOffset(nextOffset);
       setHasMore(result.data.length === PAGE_SIZE);
     }
@@ -123,7 +127,7 @@ export default function AdminPayLinksPage() {
                     <td>
                       <span className={`status-pill ${l.active ? "active" : "suspended"}`}>{l.active ? "active" : "inactive"}</span>
                     </td>
-                    <td>{formatUtcDateTime(l.created_at)}</td>
+                    <td>{formatUtcTimestamp(l.created_at)}</td>
                   </tr>
                 ))}
               </tbody>

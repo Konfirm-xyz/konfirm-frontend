@@ -3,7 +3,7 @@ import LoadingSpinner from "@/components/LoadingSpinner";
 
 import { useEffect, useState } from "react";
 import { API_BASE } from "@/lib/api";
-import { formatAmount } from "@/lib/format";
+import { formatAmount, formatUtcTimestamp } from "@/lib/format";
 
 interface UserRow {
   payer_address: string;
@@ -32,6 +32,7 @@ export default function AdminUsersPage() {
   const [loadingMore, setLoadingMore] = useState(false);
   const [offset, setOffset] = useState(0);
   const [hasMore, setHasMore] = useState(false);
+  const [error, setError] = useState(false);
 
   useEffect(() => {
     (async () => {
@@ -39,11 +40,27 @@ export default function AdminUsersPage() {
       if (res.ok) {
         const rows: UserRow[] = await res.json();
         setUsers(rows);
+        setOffset(rows.length);
         setHasMore(rows.length === PAGE_SIZE);
+        setError(false);
+      } else {
+        setError(true);
       }
       setLoading(false);
     })();
   }, []);
+
+  async function loadMore() {
+    setLoadingMore(true);
+    const res = await fetch(`${API_BASE}/admin/users?limit=${PAGE_SIZE}&offset=${offset}`, { credentials: "include" });
+    if (res.ok) {
+      const rows: UserRow[] = await res.json();
+      setUsers((prev) => [...prev, ...rows]);
+      setOffset((prev) => prev + rows.length);
+      setHasMore(rows.length === PAGE_SIZE);
+    }
+    setLoadingMore(false);
+  }
 
   const q = search.trim().toLowerCase();
   const visible = q ? users.filter((u) => u.payer_address.toLowerCase().includes(q)) : users;

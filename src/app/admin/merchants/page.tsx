@@ -1,8 +1,10 @@
 "use client";
 import LoadingSpinner from "@/components/LoadingSpinner";
 
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { apiFetch, apiPatch, apiPost } from "@/lib/api";
+import { reportError } from "@/lib/report-error";
+import { formatUtcTimestamp } from "@/lib/format";
 
 type RiskTier = "unverified" | "standard" | "established" | "enterprise";
 
@@ -35,17 +37,21 @@ export default function AdminMerchantsPage() {
   const [loadingMore, setLoadingMore] = useState(false);
   const [pendingId, setPendingId] = useState<string | null>(null);
   const [error, setError] = useState("");
+  const [loadError, setLoadError] = useState(false);
   const inFlight = useRef(false);
 
-  async function load() {
-    try {
-      const data = await apiFetch<Merchant[]>("/admin/merchants");
-      setMerchants(data);
-    } catch (err) {
-      console.error("[konfirm admin] merchants load failed", err);
-    } finally {
-      setLoading(false);
+  const PAGE_SIZE = 50;
+
+  async function load(offset = 0) {
+    const result = await apiFetch<Merchant[]>(`/admin/merchants?limit=${PAGE_SIZE}&offset=${offset}`);
+    if (result.ok && result.data) {
+      setMerchants((prev) => (offset === 0 ? result.data! : [...prev, ...result.data!]));
+      setLoadError(false);
+    } else {
+      setLoadError(true);
     }
+    setLoading(false);
+    setLoadingMore(false);
   }
 
   useEffect(() => {
@@ -76,17 +82,15 @@ export default function AdminMerchantsPage() {
     }
     setPendingId(merchant.id);
     setError("");
-    try {
-      await apiPost(`/admin/merchants/${merchant.id}/password-reset`, { reason: reason.trim() });
-      setError("");
+    const result = await apiPost(`/admin/merchants/${merchant.id}/password-reset`, { reason: reason.trim() });
+    if (result.ok) {
       window.alert(`Reset link sent to ${merchant.email}.`);
-    } catch (err) {
-      reportError(err, { action: "admin.merchant.password_reset", merchantId: merchant.id });
-      setError(err instanceof Error ? err.message : "Could not send the reset email.");
-    } finally {
-      inFlight.current = false;
-      setPendingId(null);
+    } else {
+      reportError("admin.merchant.password_reset", { merchantId: merchant.id, message: result.message });
+      setError(result.message || "Could not send the reset email.");
     }
+    inFlight.current = false;
+    setPendingId(null);
   }
 
   async function toggleStatus(merchant: Merchant) {
@@ -115,19 +119,18 @@ export default function AdminMerchantsPage() {
     inFlight.current = true;
     setPendingId(merchant.id);
     setError("");
-    try {
-      await apiPatch(`/admin/merchants/${merchant.id}/status`, {
-        status: nextStatus,
-        reason: reason || undefined,
-      });
+    const result = await apiPatch(`/admin/merchants/${merchant.id}/status`, {
+      status: nextStatus,
+      reason: reason || undefined,
+    });
+    if (result.ok) {
       await load();
-    } catch (err) {
-      reportError(err, { action: "admin.merchant.status_change", merchantId: merchant.id, status: nextStatus });
-      setError(err instanceof Error ? err.message : `Could not ${verb} this merchant.`);
-    } finally {
-      inFlight.current = false;
-      setPendingId(null);
+    } else {
+      reportError("admin.merchant.status_change", { merchantId: merchant.id, status: nextStatus, message: result.message });
+      setError(result.message || `Could not ${verb} this merchant.`);
     }
+    inFlight.current = false;
+    setPendingId(null);
   }
 
   async function changeTier(merchant: Merchant, riskTier: RiskTier) {
@@ -146,16 +149,15 @@ export default function AdminMerchantsPage() {
     inFlight.current = true;
     setPendingId(merchant.id);
     setError("");
-    try {
-      await apiPatch(`/admin/merchants/${merchant.id}/tier`, { risk_tier: riskTier });
+    const result = await apiPatch(`/admin/merchants/${merchant.id}/tier`, { risk_tier: riskTier });
+    if (result.ok) {
       await load();
-    } catch (err) {
-      reportError(err, { action: "admin.merchant.tier_change", merchantId: merchant.id, riskTier });
-      setError(err instanceof Error ? err.message : "Could not change this merchant's tier.");
-    } finally {
-      inFlight.current = false;
-      setPendingId(null);
+    } else {
+      reportError("admin.merchant.tier_change", { merchantId: merchant.id, riskTier, message: result.message });
+      setError(result.message || "Could not change this merchant's tier.");
     }
+    inFlight.current = false;
+    setPendingId(null);
   }
 
   const q = search.trim().toLowerCase();

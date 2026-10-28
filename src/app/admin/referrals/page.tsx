@@ -3,6 +3,7 @@ import LoadingSpinner from "@/components/LoadingSpinner";
 
 import { useEffect, useState } from "react";
 import { apiFetch } from "@/lib/api";
+import { formatUtcTimestamp } from "@/lib/format";
 
 interface ReferralRow {
   id: string;
@@ -27,17 +28,18 @@ export default function AdminReferralsPage() {
   const [loadingMore, setLoadingMore] = useState(false);
   const [offset, setOffset] = useState(0);
   const [hasMore, setHasMore] = useState(false);
+  const [error, setError] = useState(false);
 
   useEffect(() => {
     (async () => {
-      const res = await fetch(`${API_BASE}/admin/referrals?limit=${PAGE_SIZE}&offset=0`, {
-        credentials: "include",
-      });
-      if (res.ok) {
-        const rows: ReferralRow[] = await res.json();
-        setReferrals(rows);
-        setOffset(rows.length);
-        setHasMore(rows.length === PAGE_SIZE);
+      const result = await apiFetch<ReferralRow[]>(`/admin/referrals?limit=${PAGE_SIZE}&offset=0`);
+      if (result.ok && result.data) {
+        setReferrals(result.data);
+        setOffset(result.data.length);
+        setHasMore(result.data.length === PAGE_SIZE);
+        setError(false);
+      } else {
+        setError(true);
       }
       setLoading(false);
     })();
@@ -45,14 +47,11 @@ export default function AdminReferralsPage() {
 
   async function loadMore() {
     setLoadingMore(true);
-    const res = await fetch(`${API_BASE}/admin/referrals?limit=${PAGE_SIZE}&offset=${offset}`, {
-      credentials: "include",
-    });
-    if (res.ok) {
-      const rows: ReferralRow[] = await res.json();
-      setReferrals((prev) => [...prev, ...rows]);
-      setOffset((prev) => prev + rows.length);
-      setHasMore(rows.length === PAGE_SIZE);
+    const result = await apiFetch<ReferralRow[]>(`/admin/referrals?limit=${PAGE_SIZE}&offset=${offset}`);
+    if (result.ok && result.data) {
+      setReferrals((prev) => [...prev, ...result.data!]);
+      setOffset((prev) => prev + result.data!.length);
+      setHasMore(result.data.length === PAGE_SIZE);
     }
     setLoadingMore(false);
   }
