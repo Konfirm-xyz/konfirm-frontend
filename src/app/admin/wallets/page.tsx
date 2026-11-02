@@ -28,19 +28,33 @@ export default function AdminWalletsPage() {
   const [loadingMore, setLoadingMore] = useState(false);
   const [offset, setOffset] = useState(0);
   const [hasMore, setHasMore] = useState(false);
+  const [error, setError] = useState(false);
 
   useEffect(() => {
     (async () => {
-      const res = await fetch(`${API_BASE}/admin/wallets?limit=${PAGE_SIZE}&offset=0`, { credentials: "include" });
-      if (res.ok) {
-        const rows: WalletRow[] = await res.json();
-        setWallets(rows);
-        setOffset(rows.length);
-        setHasMore(rows.length === PAGE_SIZE);
+      const result = await apiFetch<WalletRow[]>(`/admin/wallets?limit=${PAGE_SIZE}&offset=0`);
+      if (result.ok && result.data) {
+        setWallets(result.data);
+        setOffset(result.data.length);
+        setHasMore(result.data.length === PAGE_SIZE);
+        setError(false);
+      } else {
+        setError(true);
       }
       setLoading(false);
     })();
   }, []);
+
+  async function loadMore() {
+    setLoadingMore(true);
+    const result = await apiFetch<WalletRow[]>(`/admin/wallets?limit=${PAGE_SIZE}&offset=${offset}`);
+    if (result.ok && result.data) {
+      setWallets((prev) => [...prev, ...result.data!]);
+      setOffset((prev) => prev + result.data!.length);
+      setHasMore(result.data.length === PAGE_SIZE);
+    }
+    setLoadingMore(false);
+  }
 
   const q = search.trim().toLowerCase();
   const visible = q ? wallets.filter((w) => w.address.toLowerCase().includes(q)) : wallets;

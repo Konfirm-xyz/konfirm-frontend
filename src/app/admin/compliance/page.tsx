@@ -3,6 +3,8 @@ import LoadingSpinner from "@/components/LoadingSpinner";
 
 import { useEffect, useState, type FormEvent } from "react";
 import { apiFetch, apiPost } from "@/lib/api";
+import { reportError } from "@/lib/report-error";
+import { formatUtcTimestamp } from "@/lib/format";
 
 interface BlockedAddress {
   id: string;
@@ -24,14 +26,14 @@ export default function AdminCompliancePage() {
   const [loadError, setLoadError] = useState(false);
 
   async function load() {
-    try {
-      const data = await apiFetch<BlockedAddress[]>("/admin/compliance/blocked-addresses");
-      setBlocked(data);
-    } catch (err) {
-      console.error("[konfirm admin] load blocked addresses failed", err);
-    } finally {
-      setLoading(false);
+    const result = await apiFetch<BlockedAddress[]>("/admin/compliance/blocked-addresses");
+    if (result.ok && result.data) {
+      setBlocked(result.data);
+      setLoadError(false);
+    } else {
+      setLoadError(true);
     }
+    setLoading(false);
   }
 
   useEffect(() => {
@@ -48,35 +50,33 @@ export default function AdminCompliancePage() {
     }
     setSubmitting(true);
     setError("");
-    try {
-      await apiPost("/admin/compliance/blocked-addresses", {
-        stellar_address: address.trim(),
-        reason: reason || undefined,
-      });
+    const result = await apiPost("/admin/compliance/blocked-addresses", {
+      stellar_address: address.trim(),
+      reason: reason || undefined,
+    });
+    if (result.ok) {
       setAddress("");
       setReason("");
       await load();
-    } catch (err) {
-      reportError(err, { tags: { area: "admin-compliance", action: "block-address" } });
-      setError(err instanceof Error ? err.message : "Could not block this address.");
-    } finally {
-      setSubmitting(false);
+    } else {
+      reportError("admin compliance block address failed", result.message);
+      setError(result.message || "Could not block this address.");
     }
+    setSubmitting(false);
   }
 
   async function handleUnblock(entry: BlockedAddress) {
     if (!window.confirm(`Unblock ${entry.stellar_address}?`)) return;
     setPendingId(entry.id);
     setError("");
-    try {
-      await apiFetch(`/admin/compliance/blocked-addresses/${entry.id}`, { method: "DELETE" });
+    const result = await apiFetch(`/admin/compliance/blocked-addresses/${entry.id}`, { method: "DELETE" });
+    if (result.ok) {
       await load();
-    } catch (err) {
-      reportError(err, { tags: { area: "admin-compliance", action: "unblock-address" } });
-      setError(err instanceof Error ? err.message : "Could not unblock this address.");
-    } finally {
-      setPendingId(null);
+    } else {
+      reportError("admin compliance unblock address failed", result.message);
+      setError(result.message || "Could not unblock this address.");
     }
+    setPendingId(null);
   }
 
   return (

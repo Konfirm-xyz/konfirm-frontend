@@ -4,8 +4,8 @@ import { useEffect, useRef, useState } from "react";
 import Link from "next/link";
 import { API_BASE } from "@/lib/api";
 import { useRequireAuth } from "@/lib/useAuth";
-import { reportError } from "@/lib/reportError";
-import { useBeforeUnload } from "@/lib/useBeforeUnload";
+import { reportError } from "@/lib/report-error";
+import { useBeforeUnload } from "@/lib/use-before-unload";
 
 const HORIZON_URL = "https://horizon-testnet.stellar.org";
 type Currency = "XLM" | "USDC";
@@ -58,7 +58,7 @@ export default function CashoutPage() {
   useBeforeUnload(signingInFlight);
 
   useEffect(() => {
-    freighterApi.isConnected().then((res) => {
+    import("@stellar/freighter-api").then(({ default: freighterApi }) => freighterApi.isConnected()).then((res) => {
       setFreighterAvailable(!res.error && res.isConnected !== false);
     }).catch(() => {
       setFreighterAvailable(false);
@@ -167,7 +167,7 @@ export default function CashoutPage() {
           if (cancelled.current) return;
         } catch (err) {
           if (cancelled.current) return;
-          console.error("[konfirm cashout] withdrawal payment failed", err);
+          reportError(err, { tags: { flow: "cashout", stage: "withdrawal_payment" } });
           showFormError(friendlyMessage(err));
           return;
         }
@@ -238,7 +238,7 @@ export default function CashoutPage() {
       pollStatus(tokenBody.token, startBody.id);
     } catch (err) {
       if (cancelled.current) return;
-      console.error("[konfirm cashout]", err);
+      reportError(err, { tags: { flow: "cashout", stage: "start" } });
       showFormError(friendlyMessage(err));
     }
   }
@@ -284,10 +284,19 @@ export default function CashoutPage() {
             </div>
             <div className="limit-note">This test partner accepts between 1–10 units per cash-out.</div>
 
-            <button type="button" className="primary" disabled={starting} onClick={handleStart}>
-              {starting ? "Starting…" : "Connect wallet & start cash-out"}
-            </button>
-            <div className={`status${status || missingAddressStatus ? " error" : ""}`}>{status || missingAddressStatus}</div>
+            {freighterAvailable === false ? (
+              <div className="status error">
+                Cash-out requires the Freighter browser extension. Open this page in Chrome or Firefox on desktop with{" "}
+                <a href="https://freighter.app" target="_blank" rel="noopener noreferrer">Freighter installed</a>.
+              </div>
+            ) : (
+              <>
+                <button type="button" className="primary" disabled={starting} onClick={handleStart}>
+                  {starting ? "Starting…" : "Connect wallet & start cash-out"}
+                </button>
+                <div className={`status${status || missingAddressStatus ? " error" : ""}`}>{status || missingAddressStatus}</div>
+              </>
+            )}
           </div>
         )}
 

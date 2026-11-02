@@ -317,6 +317,7 @@ export default function CheckoutClient({ params }: { params: Promise<{ linkId: s
                     href={qrUri}
                     target="_blank"
                     rel="noopener noreferrer"
+                    aria-label="Open this payment request in your Stellar wallet"
                     dangerouslySetInnerHTML={{ __html: qrSvg }}
                   />
                   <div className="qr-hint">{t("qrHint")}</div>

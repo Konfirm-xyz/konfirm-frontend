@@ -40,18 +40,6 @@ const nextConfig: NextConfig = {
         source: "/:path*",
         headers: securityHeaders,
       },
-    ];
-  },
-  async rewrites() {
-    return [
-      {
-        source: "/api/backend/:path*",
-        destination: `${BACKEND_URL}/:path*`,
-      },
-    ];
-  },
-  async headers() {
-    return [
       {
         source: "/admin/:path*",
         headers: [
@@ -69,6 +57,14 @@ const nextConfig: NextConfig = {
             value: "noindex, nofollow",
           },
         ],
+      },
+    ];
+  },
+  async rewrites() {
+    return [
+      {
+        source: "/api/backend/:path*",
+        destination: `${BACKEND_URL}/:path*`,
       },
     ];
   },

@@ -3,7 +3,7 @@ import LoadingSpinner from "@/components/LoadingSpinner";
 
 import { useEffect, useState } from "react";
 import { apiFetch } from "@/lib/api";
-import { formatAmount as formatCurrencyAmount } from "@/lib/format";
+import { formatAmount as formatCurrencyAmount, formatUtcTimestamp } from "@/lib/format";
 
 type SettlementStatus = "settled" | "failed" | "held";
 
@@ -44,6 +44,7 @@ export default function AdminX402SettlementsPage() {
   const [loadingMore, setLoadingMore] = useState(false);
   const [offset, setOffset] = useState(0);
   const [hasMore, setHasMore] = useState(false);
+  const [error, setError] = useState(false);
 
   async function load(nextOffset: number) {
     if (nextOffset === 0) setLoading(true);
@@ -53,10 +54,13 @@ export default function AdminX402SettlementsPage() {
       offset: String(nextOffset),
     });
     const result = await apiFetch<Settlement[]>(`/admin/x402-settlements?${params.toString()}`);
-    if (result.ok) {
-      setSettlements((prev) => (nextOffset === 0 ? result.data : [...prev, ...result.data]));
+    if (result.ok && result.data) {
+      setSettlements((prev) => (nextOffset === 0 ? result.data! : [...prev, ...result.data!]));
       setOffset(nextOffset + result.data.length);
       setHasMore(result.data.length === PAGE_SIZE);
+      setError(false);
+    } else {
+      setError(true);
     }
     setLoading(false);
     setLoadingMore(false);
@@ -147,7 +151,7 @@ export default function AdminX402SettlementsPage() {
                         <span className={`status-pill ${s.status}`}>{s.status}</span>
                       </td>
                       <td className="mono">{s.tx_hash ? shortAddress(s.tx_hash) : "—"}</td>
-                      <td>{formatDate(s.created_at)}</td>
+                      <td>{formatUtcTimestamp(s.created_at)}</td>
                     </tr>
                   ))}
                 </tbody>

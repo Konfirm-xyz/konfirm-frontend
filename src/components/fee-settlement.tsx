@@ -1,7 +1,6 @@
 "use client";
 
 import { useCallback, useEffect, useState } from "react";
-import freighterApi from "@stellar/freighter-api";
 import { TransactionBuilder, Operation } from "@stellar/stellar-sdk";
 import { API_BASE } from "@/lib/api";
 import { reportError } from "@/lib/report-error";
@@ -72,7 +71,7 @@ export default function FeeSettlement({ address }: { address: string }) {
   const [freighterAvailable, setFreighterAvailable] = useState<boolean | null>(null);
 
   useEffect(() => {
-    freighterApi.isConnected().then((res) => {
+    import("@stellar/freighter-api").then(({ default: freighterApi }) => freighterApi.isConnected()).then((res) => {
       setFreighterAvailable(!res.error && res.isConnected !== false);
     }).catch(() => {
       setFreighterAvailable(false);

@@ -1,7 +1,7 @@
 "use client";
 
-import { useCallback, useEffect, useMemo, useState } from "react";
-import { useRouter } from "next/navigation";
+import { Suspense, useCallback, useEffect, useMemo, useState } from "react";
+import { useRouter, useSearchParams } from "next/navigation";
 import Link from "next/link";
 import { API_BASE, apiPost } from "@/lib/api";
 import { useRequireAuth } from "@/lib/useAuth";
@@ -76,26 +76,16 @@ function ActivityContent() {
     loginPath: "/login",
     select: (body) => (body as { merchant: Merchant }).merchant,
   });
-  // Gate render on auth resolution — prevents a false "$0.00 received"
-  // from flashing before the first fetch completes (#135).
-  if (!resolved) {
-    return (
-      <div className="wrap">
-        <div className="header-row">
-          <div className="brand">
-            <span className="mark">✓</span> Konfirm
-          </div>
-        </div>
-        <div className="empty">Loading…</div>
-      </div>
-    );
-  }
 
   const hasAddress = Boolean(merchant?.stellar_base_address);
   const showNav = Boolean(merchant);
   const [payments, setPayments] = useState<Payment[]>([]);
   const [pending, setPending] = useState(false);
   const [pollError, setPollError] = useState(false);
+  const [statusFilter, setStatusFilter] = useState<"all" | PaymentStatus>("all");
+  const [dateFilter, setDateFilter] = useState<DateRangePreset>("all");
+  const [expandedId, setExpandedId] = useState<string | null>(null);
+  const [now, setNow] = useState<number | null>(null);
 
   const poll = useCallback(async () => {
     if (!hasAddress) return;
@@ -112,6 +102,7 @@ function ActivityContent() {
       const pendingBody = await pendingRes.json();
       setPayments(paymentsBody);
       setPending(Boolean(pendingBody.pending));
+      setNow(Date.now());
       setPollError(false);
     } catch {
       setPollError(true);
@@ -180,11 +171,35 @@ function ActivityContent() {
     });
   const hasBalances = Object.keys(totals).length > 0;
 
-  // Hold off rendering the dashboard shell (nav, actions, fee settlement)
-  // until the client-side auth check resolves — the edge proxy only checks
-  // cookie presence, so an expired session would otherwise briefly expose a
-  // fully interactive page.
-  if (!resolved) return null;
+  const filteredPayments = useMemo(() => {
+    const reference = now ?? 0;
+    const dateCutoff = dateFilter === "all" ? null : reference - Number(dateFilter) * 24 * 60 * 60 * 1000;
+    return payments.filter((p) => {
+      if (statusFilter !== "all" && p.status !== statusFilter) return false;
+      if (dateCutoff !== null && new Date(p.created_at).getTime() < dateCutoff) return false;
+      return true;
+    });
+  }, [payments, statusFilter, dateFilter, now]);
+
+  // Gate render on auth resolution — prevents a false "$0.00 received" from
+  // flashing before the first fetch completes (#135), and holds off
+  // rendering the dashboard shell (nav, actions, fee settlement) until the
+  // client-side auth check resolves — the edge proxy only checks cookie
+  // presence, so an expired session would otherwise briefly expose a fully
+  // interactive page. Placed after every hook above (not before) so hook
+  // call order stays identical across renders.
+  if (!resolved) {
+    return (
+      <div className="wrap">
+        <div className="header-row">
+          <div className="brand">
+            <span className="mark">✓</span> Konfirm
+          </div>
+        </div>
+        <div className="empty">Loading…</div>
+      </div>
+    );
+  }
 
   return (
     <div className="wrap">
@@ -370,5 +385,9 @@ function ActivityContent() {
 }
 
 export default function ActivityPage() {
-  return <ActivityContent />;
+  return (
+    <Suspense fallback={<div className="wrap"><div className="empty">Loading…</div></div>}>
+      <ActivityContent />
+    </Suspense>
+  );
 }

@@ -2,8 +2,9 @@
 import LoadingSpinner from "@/components/LoadingSpinner";
 
 import { useEffect, useState } from "react";
-import { API_BASE } from "@/lib/api";
-import { formatAmount } from "@/lib/format";
+import { API_BASE, apiPatch } from "@/lib/api";
+import { formatAmount, formatUtcTimestamp } from "@/lib/format";
+import { reportError } from "@/lib/report-error";
 
 type PaymentStatus = "paid" | "held" | "disputed";
 
@@ -36,7 +37,7 @@ const FLAG_LABEL: Record<string, string> = {
 };
 
 function formatDate(iso: string): string {
-  return formatUtc(iso);
+  return formatUtcTimestamp(iso);
 }
 
 function shortAddress(address: string): string {
@@ -119,23 +120,14 @@ export default function AdminPaymentsPage() {
 
     setPendingId(payment.id);
     setError("");
-    try {
-      const res = await apiFetch(`${API_BASE}/admin/payments/${payment.id}/status`, {
-        method: "PATCH",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ status, reason: reason.trim() }),
-      });
-      if (!res.ok) {
-        const body = await res.json().catch(() => ({}));
-        throw new Error(body.message || "Could not update this payment.");
-      }
+    const result = await apiPatch(`/admin/payments/${payment.id}/status`, { status, reason: reason.trim() });
+    if (result.ok) {
       await load(filter);
-    } catch (err) {
-      reportError(err, { scope: "admin-payments", action: "payment-status-change", paymentId: payment.id });
-      setError(err instanceof Error ? err.message : "Could not update this payment.");
-    } finally {
-      setPendingId(null);
+    } else {
+      reportError("admin-payments.payment-status-change", { paymentId: payment.id, message: result.message });
+      setError(result.message || "Could not update this payment.");
     }
+    setPendingId(null);
   }
 
   const q = search.trim().toLowerCase();

@@ -1,6 +1,6 @@
 "use client";
 
-import { useRef, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import { API_BASE } from "@/lib/api";
 import { reportError } from "@/lib/report-error";
 import { useBeforeUnload } from "@/lib/use-before-unload";
@@ -38,12 +38,23 @@ export default function GetTestUsdcPage() {
   const freighterAddress = useRef<string | null>(null);
   const signingInFlight = useRef(false);
   const sendInFlight = useRef(false);
+  const cancelled = useRef(false);
 
   const setSigningInFlight = useCallback((value: boolean) => {
     signingInFlight.current = value;
   }, []);
 
   useBeforeUnload(signingInFlight);
+
+  // Stop any in-flight polling when the component unmounts so no further
+  // requests or state updates happen after unmount (same pattern as
+  // src/app/cashout/page.tsx).
+  useEffect(() => {
+    cancelled.current = false;
+    return () => {
+      cancelled.current = true;
+    };
+  }, []);
 
   function showProgress(stage: string) {
     if (cancelled.current) return;

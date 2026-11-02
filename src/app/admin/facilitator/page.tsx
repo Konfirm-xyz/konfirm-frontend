@@ -3,7 +3,7 @@ import LoadingSpinner from "@/components/LoadingSpinner";
 
 import { useEffect, useState } from "react";
 import { apiFetch, apiPost } from "@/lib/api";
-import { formatAmount } from "@/lib/format";
+import { formatAmount, formatUtcTimestamp } from "@/lib/format";
 
 interface FacilitatorStatus {
   halted: boolean;

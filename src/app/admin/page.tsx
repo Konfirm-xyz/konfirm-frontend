@@ -118,8 +118,8 @@ export default function AdminOverviewPage() {
       apiFetch<Stats>("/admin/stats"),
       apiFetch<ActivityEntry[]>("/admin/activity"),
     ]);
-    if (statsResult.data) setStats(statsResult.data);
-    if (activityResult.data) setActivity(activityResult.data);
+    if (statsResult.ok && statsResult.data) setStats(statsResult.data);
+    if (activityResult.ok && activityResult.data) setActivity(activityResult.data);
     else setActivityError(true);
     setLoading(false);
   }
