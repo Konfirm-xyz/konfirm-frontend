@@ -15,6 +15,7 @@ export async function generateMetadata({
   params: Promise<{ linkId: string }>;
 }): Promise<Metadata> {
   const { linkId } = await params;
+  const url = `https://konfirm.xyz/pay/${linkId}`;
 
   try {
     const res = await fetch(`${API_BASE}/links/${linkId}/public`, {
@@ -39,15 +40,26 @@ export async function generateMetadata({
     return {
       title,
       description,
+      alternates: { canonical: url },
       openGraph: {
         title,
         description,
+        url,
         type: "website",
+        images: [
+          {
+            url: "/og-pay.png",
+            width: 1200,
+            height: 630,
+            alt: `Pay ${amountStr} to ${data.merchant_name} with Konfirm`,
+          },
+        ],
       },
       twitter: {
-        card: "summary",
+        card: "summary_large_image",
         title,
         description,
+        images: ["/og-pay.png"],
       },
     };
   } catch {
