@@ -90,14 +90,6 @@ export default async function RootPage() {
         </div>
       </div>
 
-      <div className="landing-status">
-        <strong>Where this stands today:</strong> all four Soroban contracts — compliance, payment,
-        treasury, and channel — are built, tested, and deployed on Stellar testnet, with bytecode
-        verified against source. The classic payment flow and the multisig treasury settlement flow
-        have both been proven end-to-end against live testnet contracts. This is pre-launch: no real
-        users yet, and nothing here runs on mainnet.
-      </div>
-
       <footer className="landing-footer">
         Konfirm is a non-custodial Stellar payment processor. <Link href="/signup">Get started</Link>
       </footer>
