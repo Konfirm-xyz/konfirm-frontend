@@ -105,6 +105,7 @@ export default function AdminTreasuryPage() {
   }
 
   useEffect(() => {
+    // eslint-disable-next-line react-hooks/set-state-in-effect -- setState only runs after the await inside load(), not synchronously in the effect
     load();
     loadSettlements();
   }, []);
