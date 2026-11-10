@@ -68,6 +68,7 @@ export function useLocale(): SupportedLocale {
   const [locale, setLocale] = useState<SupportedLocale>("en");
   useEffect(() => {
     const lang = typeof navigator !== "undefined" ? navigator.language : "en";
+    // eslint-disable-next-line react-hooks/set-state-in-effect -- navigator is unavailable during SSR; this recomputes the locale once, after mount, on the client only
     setLocale(bestLocale(lang));
   }, []);
   return locale;
