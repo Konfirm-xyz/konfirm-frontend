@@ -40,6 +40,7 @@ export default async function RootPage() {
       </nav>
 
       <section className="landing-hero">
+        <div className="hero-glow" />
         <span className="landing-badge">Testnet · Pre-launch</span>
         <h1>Non-custodial Stellar payments — for people, and for AI agents.</h1>
         <p className="lead">
@@ -54,6 +55,47 @@ export default async function RootPage() {
           <Link href="/login" className="btn-secondary">
             Log in
           </Link>
+        </div>
+
+        <div className="channel-viz">
+          <div className="channel-nodes">
+            <div className="channel-node">
+              <span className="dot">A</span>agent_7f2a
+            </div>
+            <div className="channel-line" />
+            <div className="channel-node">
+              <span className="dot">B</span>agent_c91e
+            </div>
+          </div>
+          <div className="channel-feed">
+            <div>
+              <span className="ok">✓ commit</span> agent_7f2a → agent_c91e ·{" "}
+              <span className="amt">0.0004 USDC</span> · off-chain
+            </div>
+            <div>
+              <span className="ok">✓ commit</span> agent_c91e → agent_7f2a ·{" "}
+              <span className="amt">0.0002 USDC</span> · off-chain
+            </div>
+            <div>
+              <span className="ok">✓ settle</span> channel close ·{" "}
+              <span className="amt">1 on-chain tx</span> · Soroban
+            </div>
+          </div>
+        </div>
+
+        <div className="proof-strip">
+          <div className="proof-item">
+            <span className="num">2-of-3</span>
+            <span className="label">multisig treasury</span>
+          </div>
+          <div className="proof-item">
+            <span className="num">100%</span>
+            <span className="label">reconciled against Horizon</span>
+          </div>
+          <div className="proof-item">
+            <span className="num">0</span>
+            <span className="label">custody of your funds</span>
+          </div>
         </div>
       </section>
 
@@ -74,7 +116,7 @@ export default async function RootPage() {
           </ul>
         </div>
 
-        <div className="landing-feature">
+        <div className="landing-feature agentic">
           <div className="eyebrow">Agentic payments (x402)</div>
           <h2>Built for AI agents paying AI agents, at machine speed.</h2>
           <p>
