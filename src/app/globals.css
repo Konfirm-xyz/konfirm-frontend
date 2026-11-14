@@ -9,6 +9,8 @@
   --text-faint: #8f8878;
   --accent: #c3a06a;
   --accent-ink: #1a1408;
+  --signal: #5fd4c4;
+  --signal-ink: #04231f;
   --success: #3a9c7d;
   --error: #d9704a;
   --warn: #c98a3a;
@@ -724,7 +726,8 @@ a.txlink {
 @media (prefers-reduced-motion: reduce) {
   .waiting-banner .spin,
   .progress .spin,
-  .live-dot span.d {
+  .live-dot span.d,
+  .channel-node .dot {
     animation: none;
   }
 }
@@ -1131,8 +1134,23 @@ a.txlink {
 .landing-hero {
   text-align: center;
   margin-bottom: 72px;
+  position: relative;
+}
+.hero-glow {
+  position: absolute;
+  top: -120px;
+  left: 50%;
+  transform: translateX(-50%);
+  width: 820px;
+  height: 440px;
+  pointer-events: none;
+  filter: blur(10px);
+  background:
+    radial-gradient(ellipse at 35% 40%, rgba(195, 160, 106, 0.14) 0%, transparent 60%),
+    radial-gradient(ellipse at 65% 60%, rgba(95, 212, 196, 0.14) 0%, transparent 60%);
 }
 .landing-badge {
+  position: relative;
   display: inline-flex;
   align-items: center;
   gap: 6px;
@@ -1145,12 +1163,14 @@ a.txlink {
   margin-bottom: 20px;
 }
 .landing-hero h1 {
+  position: relative;
   font-size: 44px;
   line-height: 1.15;
   letter-spacing: -0.01em;
   margin: 0 0 16px;
 }
 .landing-hero .lead {
+  position: relative;
   font-size: 17px;
   color: var(--text-lo);
   max-width: 560px;
@@ -1158,10 +1178,111 @@ a.txlink {
   line-height: 1.55;
 }
 .landing-hero .cta-row {
+  position: relative;
   display: flex;
   justify-content: center;
   gap: 12px;
   flex-wrap: wrap;
+}
+
+/* Live agent-channel visualization — the actual x402 differentiator, shown
+   not told. CSS-only, no JS/animation library dependency. */
+.channel-viz {
+  position: relative;
+  max-width: 560px;
+  margin: 48px auto 0;
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: 16px;
+  padding: 28px 24px;
+  text-align: left;
+}
+.channel-nodes {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-bottom: 18px;
+}
+.channel-node {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 8px;
+  font-size: 12px;
+  font-family: ui-monospace, "SF Mono", Menlo, monospace;
+  color: var(--text-faint);
+}
+.channel-node .dot {
+  width: 36px;
+  height: 36px;
+  border-radius: 50%;
+  background: var(--signal-ink);
+  border: 2px solid var(--signal);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 14px;
+  color: var(--signal);
+  animation: channel-pulse 1.8s infinite;
+}
+@keyframes channel-pulse {
+  0%,
+  100% {
+    box-shadow: 0 0 0 0 rgba(95, 212, 196, 0.35);
+  }
+  50% {
+    box-shadow: 0 0 0 8px rgba(95, 212, 196, 0);
+  }
+}
+.channel-line {
+  flex: 1;
+  height: 2px;
+  background: linear-gradient(90deg, var(--signal), var(--accent));
+  margin: 0 14px;
+  position: relative;
+  top: -20px;
+  opacity: 0.6;
+}
+.channel-feed {
+  font-family: ui-monospace, "SF Mono", Menlo, monospace;
+  font-size: 12px;
+  color: var(--text-lo);
+  line-height: 1.8;
+  border-top: 1px solid var(--border);
+  padding-top: 14px;
+}
+.channel-feed .ok {
+  color: var(--signal);
+}
+.channel-feed .amt {
+  color: var(--text-hi);
+}
+
+.proof-strip {
+  position: relative;
+  display: flex;
+  justify-content: center;
+  gap: 56px;
+  margin: 40px auto 0;
+  padding-top: 32px;
+  border-top: 1px solid var(--border);
+  max-width: 640px;
+  flex-wrap: wrap;
+}
+.proof-item {
+  text-align: center;
+}
+.proof-item .num {
+  font-weight: 700;
+  font-size: 26px;
+  font-variant-numeric: tabular-nums;
+  color: var(--text-hi);
+  display: block;
+  margin-bottom: 4px;
+}
+.proof-item .label {
+  font-size: 12.5px;
+  color: var(--text-faint);
 }
 a.btn-primary,
 a.btn-secondary {
@@ -1198,6 +1319,12 @@ a.btn-secondary:hover {
   border: 1px solid var(--border);
   border-radius: 16px;
   padding: 28px;
+}
+.landing-feature.agentic {
+  border-color: color-mix(in srgb, var(--signal) 35%, var(--border));
+}
+.landing-feature.agentic .eyebrow {
+  color: var(--signal);
 }
 .landing-feature .eyebrow {
   font-size: 12px;
