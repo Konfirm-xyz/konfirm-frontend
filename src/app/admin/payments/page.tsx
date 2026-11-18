@@ -181,12 +181,12 @@ export default function AdminPaymentsPage() {
             <table className="admin-table">
               <thead>
                 <tr>
-                  <th>Merchant</th>
-                  <th>Amount</th>
-                  <th>Payer</th>
-                  <th>Status</th>
-                  <th>Created</th>
-                  <th></th>
+                  <th scope="col">Merchant</th>
+                  <th scope="col">Amount</th>
+                  <th scope="col">Payer</th>
+                  <th scope="col">Status</th>
+                  <th scope="col">Created</th>
+                  <th scope="col"><span className="sr-only">Actions</span></th>
                 </tr>
               </thead>
               <tbody>
@@ -227,23 +227,6 @@ export default function AdminPaymentsPage() {
             </table>
           </div>
         )}
-        {!loading && payments.length > 0 && (
-          <div className="admin-pagination">
-            <span>
-              Showing {payments.length}
-              {total !== null ? ` of ${total}` : ""}
-            </span>
-            {(total === null ? payments.length >= PAGE_SIZE : payments.length < total) && (
-              <button type="button" onClick={loadMore} disabled={loadingMore}>
-                {loadingMore ? "Loading…" : "Load more"}
-              </button>
-            )}
-            {total === null && payments.length >= PAGE_SIZE && (
-              <span style={{ color: "var(--text-lo)", fontSize: 12 }}>There may be more payments.</span>
-            )}
-          </div>
-        )}
-        {error && <div className="status error">{error}</div>}
       </div>
     </div>
   );
