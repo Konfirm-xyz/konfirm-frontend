@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useCallback, useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
 import { api } from "@/lib/api";
 import { useAuth } from "@/lib/auth";
@@ -86,6 +86,13 @@ export default function AdminPage() {
   const [stats, setStats] = useState<AdminStats | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
+  const [reloadKey, setReloadKey] = useState(0);
+
+  const retry = useCallback(() => {
+    setError(null);
+    setLoading(true);
+    setReloadKey((k) => k + 1);
+  }, []);
 
   useEffect(() => {
     if (authLoading) return;
@@ -99,22 +106,26 @@ export default function AdminPage() {
     }
 
     let cancelled = false;
-    api
-      .get<AdminStats>("/admin/stats")
-      .then((data) => {
+
+    const loadStats = async () => {
+      try {
+        const data = await api.get<AdminStats>("/admin/stats");
         if (!cancelled) setStats(data);
-      })
-      .catch((err) => {
-        if (!cancelled) setError(err instanceof Error ? err.message : "Failed to load stats");
-      })
-      .finally(() => {
+      } catch (err) {
+        if (!cancelled) {
+          setError(err instanceof Error ? err.message : "Failed to load stats");
+        }
+      } finally {
         if (!cancelled) setLoading(false);
-      });
+      }
+    };
+
+    loadStats();
 
     return () => {
       cancelled = true;
     };
-  }, [user, authLoading, router]);
+  }, [user, authLoading, router, reloadKey]);
 
   if (authLoading || loading) {
     return (
@@ -131,8 +142,15 @@ export default function AdminPage() {
     return (
       <div className="flex">
         <Sidebar />
-        <main className="flex-1 p-8">
+        <main className="flex-1 p-8 space-y-4">
           <p className="text-sm text-red-500">{error}</p>
+          <button
+            type="button"
+            onClick={retry}
+            className="rounded-md border border-black/10 dark:border-white/10 px-3 py-1.5 text-sm font-medium hover:bg-black/5 dark:hover:bg-white/5"
+          >
+            Retry
+          </button>
         </main>
       </div>
     );
