@@ -87,6 +87,8 @@ function ActivityContent() {
   const [dateFilter, setDateFilter] = useState<DateRangePreset>("all");
   const [expandedId, setExpandedId] = useState<string | null>(null);
   const [now, setNow] = useState<number | null>(null);
+  const [logoutError, setLogoutError] = useState(false);
+  const [loggingOut, setLoggingOut] = useState(false);
   const consecutiveFailures = useRef(0);
 
   const poll = useCallback(async () => {
@@ -162,9 +164,25 @@ function ActivityContent() {
   }, [resolved, poll]);
 
   async function handleLogout() {
-    await apiPost("/auth/logout");
-    broadcastLogout();
-    router.push("/login");
+    if (loggingOut) return;
+    setLoggingOut(true);
+    setLogoutError(false);
+    try {
+      const result = await apiPost("/auth/logout");
+      if (!result.ok) {
+        // The server never invalidated the session cookie — stay put so the
+        // user doesn't get a false sense of being logged out.
+        setLogoutError(true);
+        return;
+      }
+      broadcastLogout();
+      router.push("/login");
+    } catch {
+      // Network-level failure (offline/DNS/CORS) — fetch rejected.
+      setLogoutError(true);
+    } finally {
+      setLoggingOut(false);
+    }
   }
 
   // Held payments are listed but never counted as received until an admin
@@ -216,36 +234,6 @@ function ActivityContent() {
             background: "var(--warn, #b45309)",
             color: "#fff",
             padding: "10px 16px",
-            fontWeight: 600,
-            fontSize: 13,
-          }}
-        >
-          Admin preview — viewing as merchant
-        </div>
-      )}
-      <div className="header-row">
-        <div className="brand">
-          <span className="mark">✓</span> Konfirm
-        </div>
-        {showNav && (
-          <nav className="nav">
-            <Link href="/activity">Activity</Link>
-            <Link href="/links">Links</Link>
-            <button type="button" className="linklike" onClick={handleLogout}>
-              Log out
-            </button>
-          </nav>
-        )}
-      </div>
-      <div className="empty">Activity</div>
-    </div>
-  );
-}
+            fontW
 
-export default function ActivityPage() {
-  return (
-    <Suspense fallback={<div className="empty">Loading…</div>}>
-      <ActivityContent />
-    </Suspense>
-  );
-}
+/* … truncated 805 chars — edit only what you need near the top … */
