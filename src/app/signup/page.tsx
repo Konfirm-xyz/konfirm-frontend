@@ -4,7 +4,7 @@ import { Suspense, useEffect, useState, type FormEvent } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
 import Link from "next/link";
 import PasswordInput from "@/components/PasswordInput";
-import { API_BASE } from "@/lib/api";
+import { apiFetch, apiPost } from "@/lib/api";
 import { reportError } from "@/lib/report-error";
 
 function SignupForm() {
@@ -17,7 +17,7 @@ function SignupForm() {
     let cancelled = false;
     (async () => {
       try {
-        const res = await fetch(`${API_BASE}/auth/me`, { credentials: "include" });
+        const res = await apiFetch("/auth/me");
         if (!cancelled && res.ok) {
           router.replace("/activity");
         }
@@ -51,17 +51,12 @@ function SignupForm() {
     setSubmitting(true);
     setStatus("");
     try {
-      const res = await fetch(`${API_BASE}/auth/signup`, {
-        method: "POST",
-        credentials: "include",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          name,
-          email,
-          password,
-          stellar_base_address: addressTrimmed,
-          ...(referralCode ? { referral_code: referralCode } : {}),
-        }),
+      const res = await apiPost("/auth/signup", {
+        name,
+        email,
+        password,
+        stellar_base_address: addressTrimmed,
+        ...(referralCode ? { referral_code: referralCode } : {}),
       });
       const body = await res.json().catch(() => ({}));
       if (!res.ok) {

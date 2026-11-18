@@ -4,7 +4,7 @@ import { useEffect, useState, type FormEvent } from "react";
 import { useRouter } from "next/navigation";
 import Link from "next/link";
 import PasswordInput from "@/components/PasswordInput";
-import { API_BASE } from "@/lib/api";
+import { apiFetch, apiPost } from "@/lib/api";
 import { reportError } from "@/lib/report-error";
 
 export default function LoginPage() {
@@ -20,7 +20,7 @@ export default function LoginPage() {
     let cancelled = false;
     (async () => {
       try {
-        const res = await fetch(`${API_BASE}/auth/me`, { credentials: "include" });
+        const res = await apiFetch("/auth/me");
         if (!cancelled && res.ok) {
           router.replace("/activity");
         }
@@ -38,12 +38,7 @@ export default function LoginPage() {
     setSubmitting(true);
     setStatus("");
     try {
-      const res = await fetch(`${API_BASE}/auth/login`, {
-        method: "POST",
-        credentials: "include",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ email, password }),
-      });
+      const res = await apiPost("/auth/login", { email, password });
       const body = await res.json().catch(() => ({}));
       if (!res.ok) {
         throw new Error(typeof body.message === "string" ? body.message : "Could not log in. Please try again.");
