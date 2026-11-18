@@ -6,7 +6,6 @@ import Link from "next/link";
 import { API_BASE, apiPost } from "@/lib/api";
 import { useRequireAuth } from "@/lib/useAuth";
 import { formatAmount } from "@/lib/format";
-import { shouldShowPollError } from "@/lib/poll";
 import FeeSettlement from "@/components/fee-settlement";
 
 type PaymentStatus = "paid" | "held" | "refunded" | "disputed";
@@ -98,7 +97,7 @@ function ActivityContent() {
       ]);
       if (!paymentsRes.ok || !pendingRes.ok) {
         consecutiveFailures.current += 1;
-        if (shouldShowPollError(consecutiveFailures.current, POLL_FAILURE_THRESHOLD)) setPollError(true);
+        if (consecutiveFailures.current >= POLL_FAILURE_THRESHOLD) setPollError(true);
         return;
       }
       const paymentsBody: Payment[] = await paymentsRes.json();
@@ -110,7 +109,7 @@ function ActivityContent() {
       setPollError(false);
     } catch {
       consecutiveFailures.current += 1;
-      if (shouldShowPollError(consecutiveFailures.current, POLL_FAILURE_THRESHOLD)) setPollError(true);
+      if (consecutiveFailures.current >= POLL_FAILURE_THRESHOLD) setPollError(true);
     }
   }, [hasAddress]);
 
@@ -217,15 +216,23 @@ function ActivityContent() {
             padding: "10px 16px",
             fontWeight: 600,
             fontSize: 13,
-            borderRadius: 6,
-            marginBottom: 16,
-            display: "flex",
-            alignItems: "center",
-            gap: 8,
           }}
         >
-          <span>⚠</span>
-          Admin preview — you are viewing this merchant&apos;s dashboard as an admin. This session is read-only and has been logged.
+          Admin preview — viewing as merchant
+        </div>
+      )}
+      {pollError && (
+        <div
+          role="alert"
+          style={{
+            background: "var(--warn, #b45309)",
+            color: "#fff",
+            padding: "10px 16px",
+            fontWeight: 600,
+            fontSize: 13,
+          }}
+        >
+          Having trouble reaching the server — retrying…
         </div>
       )}
       <div className="header-row">
@@ -233,158 +240,95 @@ function ActivityContent() {
           <span className="mark">✓</span> Konfirm
         </div>
         {showNav && (
-          <div className="nav">
-            <Link href="/new">+ New payment</Link>
-            <Link href="/links">My links</Link>
-            <Link href="/cashout">Cash out</Link>
-            <Link href="/referrals">Referrals</Link>
-            <Link href="/docs">Docs</Link>
-            <button type="button" onClick={handleLogout}>
+          <div className="nav-actions">
+            <Link href="/dashboard" className="btn secondary">
+              Dashboard
+            </Link>
+            <button className="btn secondary" onClick={handleLogout}>
               Log out
             </button>
           </div>
         )}
       </div>
-      <h1>{merchant?.name ? `${merchant.name}'s activity` : "Your activity"}</h1>
-      <p className="sub">Every payment below landed and was konfirmed on-chain — nothing here is an estimate.</p>
-      {pollError ? (
-        <div className="waiting-banner show" role="status">
-          <span className="spin" /> Having trouble reaching the server — retrying…
-        </div>
-      ) : (
-        <div className="live-dot">
-          <span className="d" /> Watching for new payments
-        </div>
-      )}
-      <div className={`waiting-banner${pending ? " show" : ""}`}>
-        <span className="spin" /> A payment is on its way — konfirming on-chain now…
-      </div>
-      {merchant?.stellar_base_address && <FeeSettlement address={merchant.stellar_base_address} />}
-      <div className="balance">
-        {hasBalances ? (
-          Object.entries(totals).map(([code, amount]) => (
-            <div key={code}>
-              {formatAmount(amount, code)} <small>received</small>
+      <h1>Activity</h1>
+      <p className="sub">Live payments as they arrive.</p>
+
+      {hasBalances && (
+        <div className="totals">
+          {Object.entries(totals).map(([asset, amount]) => (
+            <div key={asset} className="total-card">
+              <div className="total-label">{asset} received</div>
+              <div className="total-amount">{formatAmount(amount, asset)}</div>
             </div>
-          ))
-        ) : (
-          <>
-            {formatAmount(0, "USDC")} <small>received</small>
-          </>
-        )}
-      </div>
-      {hasAddress && payments.length > 0 && (
-        <div className="header-row" style={{ gap: 12, flexWrap: "wrap" }}>
-          <div className="field">
-            <label htmlFor="status-filter">Status</label>
-            <select
-              id="status-filter"
-              value={statusFilter}
-              onChange={(e) => setStatusFilter(e.target.value as "all" | PaymentStatus)}
-            >
-              {STATUS_FILTERS.map((f) => (
-                <option key={f.value} value={f.value}>
-                  {f.label}
-                </option>
-              ))}
-            </select>
-          </div>
-          <div className="field">
-            <label htmlFor="date-filter">Date range</label>
-            <select id="date-filter" value={dateFilter} onChange={(e) => setDateFilter(e.target.value as DateRangePreset)}>
-              {DATE_RANGE_FILTERS.map((f) => (
-                <option key={f.value} value={f.value}>
-                  {f.label}
-                </option>
-              ))}
-            </select>
-          </div>
+          ))}
         </div>
       )}
-      <div>
-        {!hasAddress && <div className="empty">No Stellar address on file yet.</div>}
-        {hasAddress && payments.length === 0 && !pending && (
-          <div className="empty">No payments yet — this updates the instant one lands.</div>
-        )}
-        {hasAddress && payments.length > 0 && filteredPayments.length === 0 && (
-          <div className="empty">No payments match this filter.</div>
-        )}
-        {filteredPayments.map((p) => {
-          const isExpanded = expandedId === p.id;
-          return (
-            <div
-              className="payment"
-              key={p.id}
-              role="button"
-              tabIndex={0}
-              aria-expanded={isExpanded}
-              onClick={() => setExpandedId(isExpanded ? null : p.id)}
-              onKeyDown={(e) => {
-                if (e.key === "Enter" || e.key === " ") {
-                  e.preventDefault();
-                  setExpandedId(isExpanded ? null : p.id);
-                }
-              }}
-              style={{ cursor: "pointer", flexDirection: "column", alignItems: "stretch" }}
+
+      <div className="filters">
+        <div className="filter-group">
+          {STATUS_FILTERS.map((f) => (
+            <button
+              key={f.value}
+              className={`chip ${statusFilter === f.value ? "active" : ""}`}
+              onClick={() => setStatusFilter(f.value)}
             >
-              <div style={{ display: "flex", justifyContent: "space-between", width: "100%" }}>
-                <div className="left">
-                  <div className="tick">✓</div>
-                  <div className="desc">
-                    {p.link_description || "Payment"}
-                    <div className="from">
-                      from {p.payer_address.slice(0, 4)}…{p.payer_address.slice(-4)}
-                    </div>
-                    {p.fee_status === "owed" && p.fee_owed_raw && (
-                      <div className="from">
-                        Fee owed {p.fee_owed_raw} {p.fee_asset_code}
-                      </div>
-                    )}
-                    {p.status === "held" && (
-                      <div className="from" role="status">
-                        {HOLD_REASON_TEXT[p.flag_reason ?? ""] ?? HOLD_FALLBACK}
-                      </div>
-                    )}
-                  </div>
-                </div>
-                <div className="amount">
-                  {p.status === "held" ? "On hold" : formatAmount(Number(p.net_usdc), p.asset_code)}
-                </div>
-              </div>
-              {isExpanded && (
-                <div className="from" style={{ marginTop: 12, width: "100%", lineHeight: 1.8 }}>
+              {f.label}
+            </button>
+          ))}
+        </div>
+        <div className="filter-group">
+          {DATE_RANGE_FILTERS.map((f) => (
+            <button
+              key={f.value}
+              className={`chip ${dateFilter === f.value ? "active" : ""}`}
+              onClick={() => setDateFilter(f.value)}
+            >
+              {f.label}
+            </button>
+          ))}
+        </div>
+      </div>
+
+      {filteredPayments.length === 0 ? (
+        <div className="empty">No payments yet.</div>
+      ) : (
+        <div className="list">
+          {filteredPayments.map((p) => (
+            <div key={p.id} className="row">
+              <button
+                className="row-main"
+                onClick={() => setExpandedId(expandedId === p.id ? null : p.id)}
+              >
+                <span className="row-amount">{formatAmount(Number(p.net_usdc), p.asset_code)}</span>
+                <span className={`badge ${p.status}`}>{p.status}</span>
+                {p.link_description && <span className="row-desc">{p.link_description}</span>}
+              </button>
+              {expandedId === p.id && (
+                <div className="row-detail">
                   <div>
-                    <strong>Payment ID:</strong> <span className="mono">{p.id}</span>
-                  </div>
-                  <div>
-                    <strong>Status:</strong> {p.status}
-                  </div>
-                  <div>
-                    <strong>Date:</strong> {new Date(p.created_at).toLocaleString()}
-                  </div>
-                  <div>
-                    <strong>Payer address:</strong> <span className="mono">{p.payer_address}</span>
+                    <strong>Payer:</strong> {p.payer_address}
                   </div>
                   <div>
-                    <strong>Amount:</strong> {formatAmount(Number(p.net_usdc), p.asset_code)}
+                    <strong>Received:</strong> {new Date(p.created_at).toLocaleString()}
                   </div>
-                  {p.fee_status !== "none" && (
-                    <div>
-                      <strong>Fee status:</strong> {p.fee_status}
-                      {p.fee_owed_raw && ` (${p.fee_owed_raw} ${p.fee_asset_code})`}
+                  {p.status === "held" && (
+                    <div className="hold-reason">
+                      {HOLD_REASON_TEXT[p.flag_reason ?? ""] ?? HOLD_FALLBACK}
                     </div>
                   )}
-                  {p.status === "held" && (
-                    <div>
-                      <strong>Hold reason:</strong> {HOLD_REASON_TEXT[p.flag_reason ?? ""] ?? HOLD_FALLBACK}
-                    </div>
+                  {p.fee_status !== "none" && (
+                    <FeeSettlement
+                      feeStatus={p.fee_status}
+                      feeOwedRaw={p.fee_owed_raw}
+                      feeAssetCode={p.fee_asset_code}
+                    />
                   )}
                 </div>
               )}
             </div>
-          );
-        })}
-      </div>
+          ))}
+        </div>
+      )}
     </div>
   );
 }
