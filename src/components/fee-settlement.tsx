@@ -5,10 +5,10 @@ import { TransactionBuilder, Operation } from "@stellar/stellar-sdk";
 import { API_BASE } from "@/lib/api";
 import { reportError } from "@/lib/report-error";
 
-// Merchant-side fee settlement (docs/design/qr-fee-collection.md, Option B).
-// Shows what the merchant owes, then clears it in one transaction they sign in
-// Freighter. The transaction moves money from the merchant's own account to the
-// fee account, and Konfirm only submits what the merchant signed.
+// Merchant-side fee settlement. Shows what the merchant owes, then clears it in
+// one transaction they sign in Freighter. The transaction moves money from the
+// merchant's own account to the fee account, and Konfirm only submits what the
+// merchant signed.
 
 interface OwedTotal {
   asset_code: string;
