@@ -49,7 +49,7 @@ export default function DocsPage() {
               ["description", "string | null", "Human-readable label shown to the payer"],
               ["amount_usdc", "decimal | null", "Fixed amount in USDC; null means open-amount"],
               ["asset_code", "string", "Asset expected (default: USDC)"],
-              ["status", '"active" | "inactive"', "Whether the link accepts new payments"],
+              ["active", "boolean", "Whether the link accepts new payments"],
               ["created_at", "ISO 8601", "Creation timestamp (UTC)"],
             ].map(([field, type, desc]) => (
               <tr key={field as string} style={{ borderBottom: "1px solid var(--border, #e5e7eb)" }}>
