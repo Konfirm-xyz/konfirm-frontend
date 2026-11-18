@@ -58,6 +58,7 @@ export default function LoginPage() {
 
   return (
     <div className="page-center">
+      <title>Log in · Konfirm</title>
       <div className="card narrow">
         <div className="brand" style={{ marginBottom: 24 }}>
           <span className="mark">✓</span> Konfirm

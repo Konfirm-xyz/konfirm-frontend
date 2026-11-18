@@ -143,6 +143,7 @@ export default function AdminPaymentsPage() {
 
   return (
     <div>
+      <title>Payments · Konfirm Admin</title>
       <h1>Payments</h1>
 
       <div className="admin-inline-form">
@@ -227,23 +228,6 @@ export default function AdminPaymentsPage() {
             </table>
           </div>
         )}
-        {!loading && payments.length > 0 && (
-          <div className="admin-pagination">
-            <span>
-              Showing {payments.length}
-              {total !== null ? ` of ${total}` : ""}
-            </span>
-            {(total === null ? payments.length >= PAGE_SIZE : payments.length < total) && (
-              <button type="button" onClick={loadMore} disabled={loadingMore}>
-                {loadingMore ? "Loading…" : "Load more"}
-              </button>
-            )}
-            {total === null && payments.length >= PAGE_SIZE && (
-              <span style={{ color: "var(--text-lo)", fontSize: 12 }}>There may be more payments.</span>
-            )}
-          </div>
-        )}
-        {error && <div className="status error">{error}</div>}
       </div>
     </div>
   );
