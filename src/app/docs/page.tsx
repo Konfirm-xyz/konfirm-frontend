@@ -123,7 +123,8 @@ export default function DocsPage() {
         <p>
           Every merchant account includes a referral code, generated automatically at signup. Referred merchants are
           tracked under your account — see your <a href="/referrals">Referrals page</a> for your code, promo status,
-          and the list of merchants you&apos;ve referred.
+          and the list of merchants you&apos;ve referred. For how the promotional fee period works, see{" "}
+          <a href="/referral-promo">Referral promo days</a>.
         </p>
       </section>
 
