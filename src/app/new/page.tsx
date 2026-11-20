@@ -244,44 +244,47 @@ export default function NewPaymentPage() {
                 value={description}
                 onChange={(e) => setDescription(e.target.value)}
               />
-              <div className="chips">
-                {["Gift", "Payment", "Service"].map((fill) => (
-                  <button key={fill} type="button" className="chip" onClick={() => setDescription(fill)}>
-                    {fill}
-                  </button>
-                ))}
-              </div>
             </div>
 
             <button type="submit" className="primary" disabled={submitting}>
               {submitting ? "Creating…" : "Create payment link"}
             </button>
-            <div id="form-status" className={`status${status ? " error" : ""}`}>{status}</div>
+            {status && (
+              <p id="form-status" className="status" role="alert">
+                {status}
+              </p>
+            )}
           </form>
         ) : (
-          <div className="success-box">
-            <div className="tick">✓</div>
-            <h1 className="success-title">Ready to send</h1>
-            <div className="success-detail">Share this link, or open it yourself to test it now.</div>
+          <div>
+            <h1>Link ready</h1>
+            <p className="sub">Share this link with whoever&apos;s paying.</p>
             <div className="link-box">
-              <span>{linkUrl}</span>
-              <button type="button" onClick={handleCopy}>
+              <input type="text" readOnly value={linkUrl} onFocus={(e) => e.target.select()} aria-label="Payment link" />
+              <button type="button" className="copy" onClick={handleCopy}>
                 {copyLabel}
               </button>
             </div>
-            <div role="status" aria-live="polite" aria-atomic="true" style={{ position: "absolute", width: 1, height: 1, overflow: "hidden", clip: "rect(0,0,0,0)", whiteSpace: "nowrap" }}>
+            <p className="visually-hidden" role="status" aria-live="polite">
               {copyAnnouncement}
+            </p>
+            <div className="actions">
+              <button
+                type="button"
+                className="primary"
+                onClick={() => window.open(linkUrl, "_blank", "noopener,noreferrer")}
+              >
+                Open checkout
+              </button>
+              <button type="button" className="secondary" onClick={handleAnother}>
+                Create another
+              </button>
             </div>
-            <div className={`status${status ? " error" : ""}`}>{status}</div>
-            <button type="button" className="primary" onClick={() => window.location.assign(linkUrl)}>
-              Open checkout
-            </button>
-            <button type="button" className="secondary" onClick={handleAnother}>
-              Request another payment
-            </button>
-            <Link className="secondary" href="/links">
-              View my payments
-            </Link>
+            {status && (
+              <p className="status" role="alert">
+                {status}
+              </p>
+            )}
           </div>
         )}
       </div>
