@@ -127,7 +127,7 @@ export default function AdminUsersPage() {
               Showing {users.length} of {hasMore ? `${users.length}+` : users.length}
             </span>
             {hasMore && (
-              <button type="button" className="btn btn-secondary" onClick={loadMore} disabled={loadingMore}>
+              <button type="button" className="secondary" onClick={loadMore} disabled={loadingMore}>
                 {loadingMore ? "Loading…" : "Load more"}
               </button>
             )}

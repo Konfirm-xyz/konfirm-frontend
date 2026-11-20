@@ -133,7 +133,7 @@ export default function AdminNotificationsPage() {
                 {hasMore ? " — there may be more" : ""}
               </span>
               {hasMore && (
-                <button type="button" className="btn-secondary" onClick={loadMore} disabled={loadingMore}>
+                <button type="button" className="secondary" onClick={loadMore} disabled={loadingMore}>
                   {loadingMore ? "Loading…" : "Load more"}
                 </button>
               )}

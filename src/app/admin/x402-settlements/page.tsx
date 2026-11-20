@@ -164,7 +164,7 @@ export default function AdminX402SettlementsPage() {
                 {filter ? ` (${filter} filter applied to loaded rows)` : ""}
               </span>
               {hasMore && (
-                <button type="button" className="btn-secondary" disabled={loadingMore} onClick={() => load(offset)}>
+                <button type="button" className="secondary" disabled={loadingMore} onClick={() => load(offset)}>
                   {loadingMore ? "Loading…" : "Load more"}
                 </button>
               )}
