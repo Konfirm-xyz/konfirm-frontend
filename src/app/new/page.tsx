@@ -1,6 +1,6 @@
 "use client";
 
-import { useRef, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { useRouter } from "next/navigation";
 import Link from "next/link";
 import { apiPost } from "@/lib/api";
@@ -12,9 +12,16 @@ const RECENT_LINK_KEY = "konfirm:recentLink";
 const DRAFT_KEY = "konfirm:newPaymentDraft";
 
 const COPY_FEEDBACK_MS = 4000;
+const DRAFT_SAVE_DEBOUNCE_MS = 300;
 
 interface Merchant {
   name: string;
+}
+
+interface PaymentDraft {
+  amount: string;
+  currency: Currency;
+  description: string;
 }
 
 export default function NewPaymentPage() {
@@ -28,30 +35,73 @@ export default function NewPaymentPage() {
   const [amount, setAmount] = useState("");
   const [description, setDescription] = useState("");
   const [status, setStatus] = useState("");
+  const [amountInvalid, setAmountInvalid] = useState(false);
   const [submitting, setSubmitting] = useState(false);
   const [linkUrl, setLinkUrl] = useState("");
   const [copyLabel, setCopyLabel] = useState("Copy");
   const [copyAnnouncement, setCopyAnnouncement] = useState("");
   const [showResult, setShowResult] = useState(false);
   const inFlight = useRef(false);
+  const draftRestored = useRef(false);
+
+  // Restore any saved draft on mount so navigating away and back keeps the values.
+  useEffect(() => {
+    try {
+      const raw = sessionStorage.getItem(DRAFT_KEY);
+      if (raw) {
+        const draft = JSON.parse(raw) as Partial<PaymentDraft>;
+        if (typeof draft.amount === "string") setAmount(draft.amount);
+        if (typeof draft.description === "string") setDescription(draft.description);
+        if (draft.currency === "XLM" || draft.currency === "USDC" || draft.currency === "EURC") {
+          setCurrency(draft.currency);
+        }
+      }
+    } catch {
+      // sessionStorage unavailable or malformed draft — ignore
+    } finally {
+      draftRestored.current = true;
+    }
+  }, []);
+
+  // Persist the draft (debounced) as the user types, once the initial restore has run.
+  useEffect(() => {
+    if (!draftRestored.current) return;
+    const timer = setTimeout(() => {
+      try {
+        if (!amount && !description) {
+          sessionStorage.removeItem(DRAFT_KEY);
+          return;
+        }
+        const draft: PaymentDraft = { amount, currency, description };
+        sessionStorage.setItem(DRAFT_KEY, JSON.stringify(draft));
+      } catch {
+        // sessionStorage unavailable — ignore
+      }
+    }, DRAFT_SAVE_DEBOUNCE_MS);
+    return () => clearTimeout(timer);
+  }, [amount, currency, description]);
 
   async function handleSubmit(e: React.FormEvent<HTMLFormElement>) {
     e.preventDefault();
     const amountRaw = amount.trim();
     setStatus("");
+    setAmountInvalid(false);
 
     if (!amountRaw) {
       setStatus("Enter an amount greater than 0.");
+      setAmountInvalid(true);
       return;
     }
 
     const amountNum = parseAmount(amountRaw);
     if (amountNum === null) {
       setStatus("Enter a valid amount, like 1234.56.");
+      setAmountInvalid(true);
       return;
     }
     if (amountNum <= 0) {
       setStatus("Enter an amount greater than 0.");
+      setAmountInvalid(true);
       return;
     }
 
@@ -98,12 +148,34 @@ export default function NewPaymentPage() {
   }
 
   async function handleCopy() {
-    if (!navigator.clipboard?.writeText) {
-      setStatus("Couldn't copy — select and copy the link manually.");
-      return;
+    if (navigator.clipboard?.writeText) {
+      try {
+        await navigator.clipboard.writeText(linkUrl);
+        setStatus("");
+        setCopyLabel("Copied");
+        setCopyAnnouncement("Link copied to clipboard.");
+        setTimeout(() => {
+          setCopyLabel("Copy");
+          setCopyAnnouncement("");
+        }, COPY_FEEDBACK_MS);
+        return;
+      } catch (err) {
+        console.error("[konfirm new-payment] clipboard", err);
+      }
     }
+
+    // Fallback for browsers/contexts without the async Clipboard API.
     try {
-      await navigator.clipboard.writeText(linkUrl);
+      const textarea = document.createElement("textarea");
+      textarea.value = linkUrl;
+      textarea.setAttribute("readonly", "");
+      textarea.style.position = "fixed";
+      textarea.style.opacity = "0";
+      document.body.appendChild(textarea);
+      textarea.select();
+      const ok = document.execCommand("copy");
+      document.body.removeChild(textarea);
+      if (!ok) throw new Error("execCommand copy failed");
       setStatus("");
       setCopyLabel("Copied");
       setCopyAnnouncement("Link copied to clipboard.");
@@ -112,7 +184,7 @@ export default function NewPaymentPage() {
         setCopyAnnouncement("");
       }, COPY_FEEDBACK_MS);
     } catch (err) {
-      console.error("[konfirm new-payment] clipboard", err);
+      console.error("[konfirm new-payment] clipboard fallback", err);
       setStatus("Couldn't copy — select and copy the link manually.");
     }
   }
@@ -166,6 +238,8 @@ export default function NewPaymentPage() {
                 autoFocus
                 value={amount}
                 onChange={(e) => setAmount(e.target.value)}
+                aria-invalid={amountInvalid}
+                aria-describedby={amountInvalid ? "form-status" : undefined}
               />
             </div>
             <div className="currency-toggle">
@@ -192,44 +266,38 @@ export default function NewPaymentPage() {
                 value={description}
                 onChange={(e) => setDescription(e.target.value)}
               />
-              <div className="chips">
-                {["Gift", "Payment", "Service"].map((fill) => (
-                  <button key={fill} type="button" className="chip" onClick={() => setDescription(fill)}>
-                    {fill}
-                  </button>
-                ))}
-              </div>
             </div>
 
-            <button type="submit" className="primary" disabled={submitting}>
+            <button className="btn" type="submit" disabled={submitting}>
               {submitting ? "Creating…" : "Create payment link"}
             </button>
-            <div className={`status${status ? " error" : ""}`}>{status}</div>
+            {status && (
+              <p id="form-status" className="status" role="alert">
+                {status}
+              </p>
+            )}
           </form>
         ) : (
-          <div className="success-box">
-            <div className="tick">✓</div>
-            <h1 className="success-title">Ready to send</h1>
-            <div className="success-detail">Share this link, or open it yourself to test it now.</div>
+          <div>
+            <h1>Link ready</h1>
+            <p className="sub">Share this link to get paid.</p>
             <div className="link-box">
-              <span>{linkUrl}</span>
-              <button type="button" onClick={handleCopy}>
+              <input type="text" readOnly value={linkUrl} onFocus={(e) => e.target.select()} />
+              <button className="btn" type="button" onClick={handleCopy}>
                 {copyLabel}
               </button>
             </div>
-            <div role="status" aria-live="polite" aria-atomic="true" style={{ position: "absolute", width: 1, height: 1, overflow: "hidden", clip: "rect(0,0,0,0)", whiteSpace: "nowrap" }}>
+            <p className="visually-hidden" role="status" aria-live="polite">
               {copyAnnouncement}
-            </div>
-            <div className={`status${status ? " error" : ""}`}>{status}</div>
-            <button type="button" className="primary" onClick={() => window.location.assign(linkUrl)}>
-              Open checkout
+            </p>
+            {status && (
+              <p className="status" role="alert">
+                {status}
+              </p>
+            )}
+            <button className="btn secondary" type="button" onClick={handleAnother}>
+              Create another
             </button>
-            <button type="button" className="secondary" onClick={handleAnother}>
-              Request another payment
-            </button>
-            <Link className="secondary" href="/links">
-              View my payment links
-            </Link>
           </div>
         )}
       </div>

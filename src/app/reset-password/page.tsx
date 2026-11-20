@@ -13,13 +13,16 @@ function ResetPasswordForm() {
   const [confirm, setConfirm] = useState("");
   const [submitting, setSubmitting] = useState(false);
   const [status, setStatus] = useState("");
+  const [mismatch, setMismatch] = useState(false);
 
   async function handleSubmit(e: FormEvent) {
     e.preventDefault();
     if (password !== confirm) {
+      setMismatch(true);
       setStatus("The two passwords don't match.");
       return;
     }
+    setMismatch(false);
     setSubmitting(true);
     setStatus("");
     try {
@@ -63,6 +66,8 @@ function ResetPasswordForm() {
           required
           value={password}
           onChange={(e) => setPassword(e.target.value)}
+          aria-invalid={mismatch || Boolean(status)}
+          aria-describedby={status ? "form-status" : undefined}
         />
       </div>
       <div className="field">
@@ -75,12 +80,15 @@ function ResetPasswordForm() {
           required
           value={confirm}
           onChange={(e) => setConfirm(e.target.value)}
+          aria-invalid={mismatch || Boolean(status)}
+          aria-describedby={status ? "form-status" : undefined}
         />
       </div>
       <button type="submit" className="primary" disabled={submitting}>
         {submitting ? "Setting password…" : "Set new password"}
       </button>
       <div
+        id="form-status"
         className={`status${status ? " error" : ""}`}
         role="alert"
         aria-live={status ? "assertive" : "polite"}
