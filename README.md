@@ -105,3 +105,6 @@ Set `BACKEND_URL` in the Vercel project's environment variables to the deployed 
 
 <!-- handsoff-issue-158 -->
 - #158: Remove two dead CSS classes from globals.css: amount-caption, qr-caption
+
+<!-- handsoff-issue-344 -->
+- #344: Treasury's merchant-address field has no Stellar-address validation, unlike compliance's identical-shaped field
