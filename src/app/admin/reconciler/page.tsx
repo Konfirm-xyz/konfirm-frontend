@@ -61,7 +61,7 @@ export default function AdminReconcilerPage() {
     if (validationError || !target.trim()) return;
     if (
       !window.confirm(
-        "Rewinding the reconciler cursor is a rare, deliberately manual operation — see docs/RUNBOOK.md before doing this while the reconciler process is live. Continue?",
+        "Rewinding the reconciler cursor is a rare, deliberately manual operation. It is safe and idempotent — already-recorded payments are never duplicated — but only rewind to a known-good position, and prefer doing it while the reconciler process is stopped so it doesn't race the new cursor. Continue?",
       )
     ) {
       return;

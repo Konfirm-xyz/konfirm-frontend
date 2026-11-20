@@ -1,6 +1,6 @@
 "use client";
 
-import { useRef, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { useRouter } from "next/navigation";
 import Link from "next/link";
 import { apiPost } from "@/lib/api";
@@ -12,9 +12,16 @@ const RECENT_LINK_KEY = "konfirm:recentLink";
 const DRAFT_KEY = "konfirm:newPaymentDraft";
 
 const COPY_FEEDBACK_MS = 4000;
+const DRAFT_SAVE_DEBOUNCE_MS = 300;
 
 interface Merchant {
   name: string;
+}
+
+interface PaymentDraft {
+  amount: string;
+  currency: Currency;
+  description: string;
 }
 
 export default function NewPaymentPage() {
@@ -28,30 +35,73 @@ export default function NewPaymentPage() {
   const [amount, setAmount] = useState("");
   const [description, setDescription] = useState("");
   const [status, setStatus] = useState("");
+  const [amountInvalid, setAmountInvalid] = useState(false);
   const [submitting, setSubmitting] = useState(false);
   const [linkUrl, setLinkUrl] = useState("");
   const [copyLabel, setCopyLabel] = useState("Copy");
   const [copyAnnouncement, setCopyAnnouncement] = useState("");
   const [showResult, setShowResult] = useState(false);
   const inFlight = useRef(false);
+  const draftRestored = useRef(false);
+
+  // Restore any saved draft on mount so navigating away and back keeps the values.
+  useEffect(() => {
+    try {
+      const raw = sessionStorage.getItem(DRAFT_KEY);
+      if (raw) {
+        const draft = JSON.parse(raw) as Partial<PaymentDraft>;
+        if (typeof draft.amount === "string") setAmount(draft.amount);
+        if (typeof draft.description === "string") setDescription(draft.description);
+        if (draft.currency === "XLM" || draft.currency === "USDC" || draft.currency === "EURC") {
+          setCurrency(draft.currency);
+        }
+      }
+    } catch {
+      // sessionStorage unavailable or malformed draft — ignore
+    } finally {
+      draftRestored.current = true;
+    }
+  }, []);
+
+  // Persist the draft (debounced) as the user types, once the initial restore has run.
+  useEffect(() => {
+    if (!draftRestored.current) return;
+    const timer = setTimeout(() => {
+      try {
+        if (!amount && !description) {
+          sessionStorage.removeItem(DRAFT_KEY);
+          return;
+        }
+        const draft: PaymentDraft = { amount, currency, description };
+        sessionStorage.setItem(DRAFT_KEY, JSON.stringify(draft));
+      } catch {
+        // sessionStorage unavailable — ignore
+      }
+    }, DRAFT_SAVE_DEBOUNCE_MS);
+    return () => clearTimeout(timer);
+  }, [amount, currency, description]);
 
   async function handleSubmit(e: React.FormEvent<HTMLFormElement>) {
     e.preventDefault();
     const amountRaw = amount.trim();
     setStatus("");
+    setAmountInvalid(false);
 
     if (!amountRaw) {
       setStatus("Enter an amount greater than 0.");
+      setAmountInvalid(true);
       return;
     }
 
     const amountNum = parseAmount(amountRaw);
     if (amountNum === null) {
       setStatus("Enter a valid amount, like 1234.56.");
+      setAmountInvalid(true);
       return;
     }
     if (amountNum <= 0) {
       setStatus("Enter an amount greater than 0.");
+      setAmountInvalid(true);
       return;
     }
 
@@ -166,6 +216,8 @@ export default function NewPaymentPage() {
                 autoFocus
                 value={amount}
                 onChange={(e) => setAmount(e.target.value)}
+                aria-invalid={amountInvalid}
+                aria-describedby={amountInvalid ? "form-status" : undefined}
               />
             </div>
             <div className="currency-toggle">
@@ -204,7 +256,7 @@ export default function NewPaymentPage() {
             <button type="submit" className="primary" disabled={submitting}>
               {submitting ? "Creating…" : "Create payment link"}
             </button>
-            <div className={`status${status ? " error" : ""}`}>{status}</div>
+            <div id="form-status" className={`status${status ? " error" : ""}`}>{status}</div>
           </form>
         ) : (
           <div className="success-box">
@@ -228,7 +280,7 @@ export default function NewPaymentPage() {
               Request another payment
             </button>
             <Link className="secondary" href="/links">
-              View my payment links
+              View my payments
             </Link>
           </div>
         )}

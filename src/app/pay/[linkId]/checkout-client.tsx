@@ -199,6 +199,11 @@ export default function CheckoutClient({ params }: { params: Promise<{ linkId: s
 
   useEffect(() => {
     let cancelled = false;
+    // Persisted so a page refresh resumes polling the same session instead
+    // of reserving a new, unrelated one — losing track of a payment that
+    // may already be in flight (scanned, signed, or even submitted) against
+    // the old muxed_id.
+    const storageKey = `konfirm:muxed_id:${linkId}`;
 
     async function init() {
       const res = await fetch(`${API_BASE}/links/${linkId}/public`);
@@ -210,7 +215,13 @@ export default function CheckoutClient({ params }: { params: Promise<{ linkId: s
       const data: LinkData = await res.json();
       setLinkData(data);
       try {
-        sharedMuxedId.current = await reserveSessionWithRetry();
+        const existing = sessionStorage.getItem(storageKey);
+        if (existing) {
+          sharedMuxedId.current = existing;
+        } else {
+          sharedMuxedId.current = await reserveSessionWithRetry();
+          sessionStorage.setItem(storageKey, sharedMuxedId.current);
+        }
       } catch (err) {
         console.error("[konfirm checkout] could not reserve a payment session", err);
         setStatusMsg(friendlyMessage(err), true);

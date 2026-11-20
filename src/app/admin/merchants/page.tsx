@@ -211,12 +211,12 @@ export default function AdminMerchantsPage() {
             <table className="admin-table">
               <thead>
                 <tr>
-                  <th>Merchant</th>
-                  <th>Status</th>
-                  <th>Risk tier</th>
-                  <th>Stellar address</th>
-                  <th>Created (UTC)</th>
-                  <th></th>
+                  <th scope="col">Merchant</th>
+                  <th scope="col">Status</th>
+                  <th scope="col">Risk tier</th>
+                  <th scope="col">Stellar address</th>
+                  <th scope="col">Created (UTC)</th>
+                  <th scope="col"><span className="sr-only">Actions</span></th>
                 </tr>
               </thead>
               <tbody>
@@ -249,8 +249,16 @@ export default function AdminMerchantsPage() {
                       <div className="admin-row-actions">
                         <button
                           type="button"
-                          className="btn btn-ghost"
-                          disabled={pendingIds.has(m.id)}
+                          className="btn btn-ghost btn-sm"
+                          disabled={pendingId === m.id}
+                          onClick={() => toggleStatus(m)}
+                        >
+                          {m.status === "suspended" ? "Reactivate" : "Suspend"}
+                        </button>
+                        <button
+                          type="button"
+                          className="btn btn-ghost btn-sm"
+                          disabled={pendingId === m.id}
                           onClick={() => sendPasswordReset(m)}
                         >
                           Send reset
@@ -271,11 +279,13 @@ export default function AdminMerchantsPage() {
             </table>
           </div>
         )}
-        {error && <div className="error">{error}</div>}
-        {!loading && !loadError && merchants.length > 0 && (
-          <button type="button" className="btn btn-ghost" onClick={loadMore} disabled={loadingMore}>
-            {loadingMore ? "Loading…" : "Load more"}
-          </button>
+        {error && <div className="form-error">{error}</div>}
+        {!loading && !loadError && merchants.length > 0 && merchants.length % PAGE_SIZE === 0 && (
+          <div className="admin-load-more">
+            <button type="button" className="btn btn-ghost" disabled={loadingMore} onClick={loadMore}>
+              {loadingMore ? "Loading…" : "Load more"}
+            </button>
+          </div>
         )}
       </div>
     </div>
