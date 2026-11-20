@@ -25,7 +25,7 @@ const STATUS_OPTIONS: SettlementStatus[] = ["settled", "failed", "held"];
 // existing payments table's already-decimal amount_usdc.
 function formatAmount(amount: string): string {
   const n = Number(amount) / 10_000_000;
-  return Number.isFinite(n) ? formatCurrencyAmount(n, "USDC") : amount;
+  return Number.isFinite(n) ? formatCurrencyAmount(n, "USDC") : "(invalid amount)";
 }
 
 function shortAddress(address: string): string {
