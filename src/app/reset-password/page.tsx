@@ -15,6 +15,16 @@ function ResetPasswordForm() {
   const [status, setStatus] = useState("");
   const [mismatch, setMismatch] = useState(false);
 
+  function checkMismatch() {
+    if (confirm && password !== confirm) {
+      setMismatch(true);
+      setStatus("The two passwords don't match.");
+    } else {
+      setMismatch(false);
+      setStatus("");
+    }
+  }
+
   async function handleSubmit(e: FormEvent) {
     e.preventDefault();
     if (password !== confirm) {
@@ -80,6 +90,7 @@ function ResetPasswordForm() {
           required
           value={confirm}
           onChange={(e) => setConfirm(e.target.value)}
+          onBlur={checkMismatch}
           aria-invalid={mismatch || Boolean(status)}
           aria-describedby={status ? "form-status" : undefined}
         />
