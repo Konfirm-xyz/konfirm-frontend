@@ -234,73 +234,13 @@ export default function NewPaymentPage() {
                 className="amount-input"
                 type="text"
                 inputMode="decimal"
-                placeholder="0.00"
+                placeholder={"0." + "0".repeat(CURRENCY_DECIMALS[currency])}
                 autoFocus
                 value={amount}
                 onChange={(e) => setAmount(e.target.value)}
                 aria-invalid={amountInvalid}
                 aria-describedby={amountInvalid ? "form-status" : undefined}
               />
-            </div>
-            <div className="currency-toggle">
-              {(["XLM", "USDC", "EURC"] as Currency[]).map((c) => (
-                <button
-                  key={c}
-                  type="button"
-                  className={`ctoggle${currency === c ? " active" : ""}`}
-                  aria-pressed={currency === c}
-                  onClick={() => setCurrency(c)}
-                >
-                  {c}
-                </button>
-              ))}
-            </div>
+        
 
-            <div className="field">
-              <label htmlFor="desc">What&apos;s it for?</label>
-              <input
-                id="desc"
-                type="text"
-                placeholder="e.g. A gift for Mom"
-                maxLength={200}
-                value={description}
-                onChange={(e) => setDescription(e.target.value)}
-              />
-            </div>
-
-            <button className="btn" type="submit" disabled={submitting}>
-              {submitting ? "Creating…" : "Create payment link"}
-            </button>
-            {status && (
-              <p id="form-status" className="status" role="alert">
-                {status}
-              </p>
-            )}
-          </form>
-        ) : (
-          <div>
-            <h1>Link ready</h1>
-            <p className="sub">Share this link to get paid.</p>
-            <div className="link-box">
-              <input type="text" readOnly value={linkUrl} onFocus={(e) => e.target.select()} />
-              <button className="btn" type="button" onClick={handleCopy}>
-                {copyLabel}
-              </button>
-            </div>
-            <p className="visually-hidden" role="status" aria-live="polite">
-              {copyAnnouncement}
-            </p>
-            {status && (
-              <p className="status" role="alert">
-                {status}
-              </p>
-            )}
-            <button className="btn secondary" type="button" onClick={handleAnother}>
-              Create another
-            </button>
-          </div>
-        )}
-      </div>
-    </div>
-  );
-}
+/* … truncated 2068 chars — edit only what you need near the top … */
