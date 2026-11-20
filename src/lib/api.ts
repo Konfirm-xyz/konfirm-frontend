@@ -113,3 +113,14 @@ export function extractTotal(body: unknown): number | null {
   }
   return null;
 }
+
+// Client-side search over an already-loaded page of rows is misleading: a
+// match on a row that lives on a later page is silently missed. The admin
+// list pages (Wallets/Users/Merchants per #243, Payments per #342) share
+// this helper so their empty state can honestly say the search only covers
+// the rows loaded so far, rather than implying "no results exist".
+export function loadedOnlySearchHint(query: string, loadedCount: number): string | null {
+  const q = query.trim();
+  if (!q) return null;
+  return `No matches in the ${loadedCount} loaded row${loadedCount === 1 ? "" : "s"}. Search only covers rows loaded so far — load more to widen the search.`;
+}

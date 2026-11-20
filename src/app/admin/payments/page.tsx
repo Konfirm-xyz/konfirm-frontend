@@ -57,9 +57,10 @@ export default function AdminPaymentsPage() {
   const [error, setError] = useState("");
   const [total, setTotal] = useState<number | null>(null);
 
-  async function fetchPage(status: string, offset: number): Promise<Payment[]> {
+  async function fetchPage(status: string, offset: number, query: string): Promise<Payment[]> {
     const params = new URLSearchParams();
     if (status) params.set("status", status);
+    if (query) params.set("search", query);
     params.set("limit", String(PAGE_SIZE));
     params.set("offset", String(offset));
     const res = await fetch(`${API_BASE}/admin/payments?${params.toString()}`, { credentials: "include" });
@@ -73,22 +74,22 @@ export default function AdminPaymentsPage() {
     return Array.isArray(body.items) ? body.items : [];
   }
 
-  async function load(status: string) {
+  async function load(status: string, query: string) {
     setLoading(true);
-    setPayments(await fetchPage(status, 0));
+    setPayments(await fetchPage(status, 0, query));
     setLoading(false);
   }
 
   // Refetch without unmounting the table so the scroll position is preserved.
-  async function refresh(status: string) {
+  async function refresh(status: string, query: string) {
     setRefreshing(true);
-    setPayments(await fetchPage(status, 0));
+    setPayments(await fetchPage(status, 0, query));
     setRefreshing(false);
   }
 
   async function loadMore() {
     setLoadingMore(true);
-    const next = await fetchPage(filter, payments.length);
+    const next = await fetchPage(filter, payments.length, search.trim());
     setPayments((prev) => [...prev, ...next]);
     setLoadingMore(false);
   }
@@ -96,9 +97,9 @@ export default function AdminPaymentsPage() {
   useEffect(() => {
     sessionStorage.setItem("admin-payments-filter", filter);
     (async () => {
-      await load(filter);
+      await load(filter, search.trim());
     })();
-  }, [filter]);
+  }, [filter, search]);
 
   async function changeStatus(payment: Payment, status: PaymentStatus) {
     if (status === payment.status) return;
@@ -130,7 +131,7 @@ export default function AdminPaymentsPage() {
     setError("");
     const result = await apiPatch(`/admin/payments/${payment.id}/status`, { status, reason: reason.trim() });
     if (result.ok) {
-      await refresh(filter);
+      await refresh(filter, search.trim());
     } else {
       reportError("admin-payments.payment-status-change", { paymentId: payment.id, message: result.message });
       setError(result.message || "Could not update this payment.");
@@ -183,7 +184,11 @@ export default function AdminPaymentsPage() {
         ) : error && payments.length === 0 ? (
           <div className="empty">Could not load payments — try again.</div>
         ) : visible.length === 0 ? (
-          <div className="empty">No payments match this filter.</div>
+          <div className="empty">
+            {q
+              ? "No payments match this search. Search covers all payments on the server."
+              : "No payments match this filter."}
+          </div>
         ) : (
           <div className="admin-table-wrap" aria-busy={refreshing}>
             <table className="admin-table">
@@ -217,25 +222,6 @@ export default function AdminPaymentsPage() {
                     <td>{formatDate(p.created_at)}</td>
                     <td>
                       <select
-                        aria-label="Payment status"
-                        value={p.status}
-                        disabled={pendingId === p.id}
-                        onChange={(e) => changeStatus(p, e.target.value as PaymentStatus)}
-                      >
-                        {STATUS_OPTIONS.map((s) => (
-                          <option key={s} value={s}>
-                            {s}
-                          </option>
-                        ))}
-                      </select>
-                    </td>
-                  </tr>
-                ))}
-              </tbody>
-            </table>
-          </div>
-        )}
-      </div>
-    </div>
-  );
-}
+                        aria-label="Payment st
+
+/* … truncated 623 chars — edit only what you need near the top … */
