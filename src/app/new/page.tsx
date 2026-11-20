@@ -148,12 +148,34 @@ export default function NewPaymentPage() {
   }
 
   async function handleCopy() {
-    if (!navigator.clipboard?.writeText) {
-      setStatus("Couldn't copy — select and copy the link manually.");
-      return;
+    if (navigator.clipboard?.writeText) {
+      try {
+        await navigator.clipboard.writeText(linkUrl);
+        setStatus("");
+        setCopyLabel("Copied");
+        setCopyAnnouncement("Link copied to clipboard.");
+        setTimeout(() => {
+          setCopyLabel("Copy");
+          setCopyAnnouncement("");
+        }, COPY_FEEDBACK_MS);
+        return;
+      } catch (err) {
+        console.error("[konfirm new-payment] clipboard", err);
+      }
     }
+
+    // Fallback for browsers/contexts without the async Clipboard API.
     try {
-      await navigator.clipboard.writeText(linkUrl);
+      const textarea = document.createElement("textarea");
+      textarea.value = linkUrl;
+      textarea.setAttribute("readonly", "");
+      textarea.style.position = "fixed";
+      textarea.style.opacity = "0";
+      document.body.appendChild(textarea);
+      textarea.select();
+      const ok = document.execCommand("copy");
+      document.body.removeChild(textarea);
+      if (!ok) throw new Error("execCommand copy failed");
       setStatus("");
       setCopyLabel("Copied");
       setCopyAnnouncement("Link copied to clipboard.");
@@ -162,7 +184,7 @@ export default function NewPaymentPage() {
         setCopyAnnouncement("");
       }, COPY_FEEDBACK_MS);
     } catch (err) {
-      console.error("[konfirm new-payment] clipboard", err);
+      console.error("[konfirm new-payment] clipboard fallback", err);
       setStatus("Couldn't copy — select and copy the link manually.");
     }
   }
@@ -244,44 +266,38 @@ export default function NewPaymentPage() {
                 value={description}
                 onChange={(e) => setDescription(e.target.value)}
               />
-              <div className="chips">
-                {["Gift", "Payment", "Service"].map((fill) => (
-                  <button key={fill} type="button" className="chip" onClick={() => setDescription(fill)}>
-                    {fill}
-                  </button>
-                ))}
-              </div>
             </div>
 
-            <button type="submit" className="primary" disabled={submitting}>
+            <button className="btn" type="submit" disabled={submitting}>
               {submitting ? "Creating…" : "Create payment link"}
             </button>
-            <div id="form-status" className={`status${status ? " error" : ""}`}>{status}</div>
+            {status && (
+              <p id="form-status" className="status" role="alert">
+                {status}
+              </p>
+            )}
           </form>
         ) : (
-          <div className="success-box">
-            <div className="tick">✓</div>
-            <h1 className="success-title">Ready to send</h1>
-            <div className="success-detail">Share this link, or open it yourself to test it now.</div>
+          <div>
+            <h1>Link ready</h1>
+            <p className="sub">Share this link to get paid.</p>
             <div className="link-box">
-              <span>{linkUrl}</span>
-              <button type="button" onClick={handleCopy}>
+              <input type="text" readOnly value={linkUrl} onFocus={(e) => e.target.select()} />
+              <button className="btn" type="button" onClick={handleCopy}>
                 {copyLabel}
               </button>
             </div>
-            <div role="status" aria-live="polite" aria-atomic="true" style={{ position: "absolute", width: 1, height: 1, overflow: "hidden", clip: "rect(0,0,0,0)", whiteSpace: "nowrap" }}>
+            <p className="visually-hidden" role="status" aria-live="polite">
               {copyAnnouncement}
-            </div>
-            <div className={`status${status ? " error" : ""}`}>{status}</div>
-            <button type="button" className="primary" onClick={() => window.location.assign(linkUrl)}>
-              Open checkout
+            </p>
+            {status && (
+              <p className="status" role="alert">
+                {status}
+              </p>
+            )}
+            <button className="btn secondary" type="button" onClick={handleAnother}>
+              Create another
             </button>
-            <button type="button" className="secondary" onClick={handleAnother}>
-              Request another payment
-            </button>
-            <Link className="secondary" href="/links">
-              View my payments
-            </Link>
           </div>
         )}
       </div>
