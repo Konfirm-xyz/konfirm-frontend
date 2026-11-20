@@ -59,6 +59,39 @@ function VolumeChart({ points }: { points: DailyVolumePoint[] }) {
 
   const max = Math.max(...points.map((p) => p.count), 1);
   const stepX = (width - padding * 2) / Math.max(points.length - 1, 1);
+// A small hand-rolled SVG area chart — this app has no charting dependency,
+// and one 7-point series doesn't need one. Real values in, real path out;
+// nothing here is decorative.
+function VolumeChart({
+  points,
+  totalUsdc,
+}: {
+  points: { date: string; net_usdc: string }[];
+  totalUsdc: string;
+}) {
+  const width = 640;
+  const height = 160;
+  const padding = 8;
+
+  // An empty report window (brand-new deployment, narrow date filter) yields
+  // no points; guard before indexing so the admin page can't crash.
+  if (points.length === 0) {
+    return (
+      <div className="empty" role="img" aria-label="Payment volume chart: no data for the last 7 days.">
+        No volume data for this period.
+      </div>
+    );
+  }
+
+  const values = points.map((p) => Number(p.net_usdc));
+  const max = Math.max(...values, 1);
+  const step = (width - padding * 2) / (points.length - 1 || 1);
+
+  const coords = values.map((v, i) => {
+    const x = padding + i * step;
+    const y = height - padding - (v / max) * (height - padding * 2);
+    return [x, y];
+  });
 
   const coords = points.map((p, i) => {
     const x = padding + i * stepX;
