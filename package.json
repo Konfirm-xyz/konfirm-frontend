@@ -1,7 +1,8 @@
 {
-  "name": "stellar-pay",
+  "name": "konfirm-frontend",
   "version": "0.1.0",
   "private": true,
+  "description": "Konfirm frontend — a Stellar payment app built with Next.js.",
   "browserslist": [
     ">0.5%",
     "last 2 versions",
