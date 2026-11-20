@@ -15,8 +15,32 @@ try {
 } catch (e) {}
 `;
 
+// Resolve the canonical base URL without silently mislabeling non-production
+// deployments as the production domain. Priority:
+//   1. NEXT_PUBLIC_BASE_URL (explicit, always wins)
+//   2. VERCEL_URL (preview/staging deployments)
+//   3. localhost in development
+//   4. https://konfirm.xyz only when actually running in production
+function resolveMetadataBase(): URL {
+  const explicit = process.env.NEXT_PUBLIC_BASE_URL;
+  if (explicit) {
+    return new URL(explicit);
+  }
+
+  const vercelUrl = process.env.VERCEL_URL;
+  if (vercelUrl) {
+    return new URL(`https://${vercelUrl}`);
+  }
+
+  if (process.env.NODE_ENV !== "production") {
+    return new URL("http://localhost:3000");
+  }
+
+  return new URL("https://konfirm.xyz");
+}
+
 export const metadata: Metadata = {
-  metadataBase: new URL(process.env.NEXT_PUBLIC_BASE_URL ?? "https://konfirm.xyz"),
+  metadataBase: resolveMetadataBase(),
   title: {
     template: "%s · Konfirm",
     default: "Konfirm",
