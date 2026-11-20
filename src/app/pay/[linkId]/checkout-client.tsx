@@ -6,6 +6,7 @@ import qrcode from "qrcode-generator";
 import { API_BASE } from "@/lib/api";
 import { useCheckoutMessages, useLocale } from "@/lib/i18n";
 import { friendlyMessage, randomMuxedId } from "@/lib/checkout";
+import { explorerTxUrl } from "@/lib/stellar-explorer";
 
 const HORIZON_URL = "https://horizon-testnet.stellar.org";
 
@@ -329,7 +330,7 @@ export default function CheckoutClient({ params }: { params: Promise<{ linkId: s
             <div className="success-detail">{t("successDetail")}</div>
             <a
               className="txlink"
-              href={`https://stellar.expert/explorer/testnet/tx/${confirmed.tx_hash}`}
+              href={explorerTxUrl(confirmed.tx_hash)}
               target="_blank"
               rel="noopener noreferrer"
             >
