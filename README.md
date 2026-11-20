@@ -100,3 +100,8 @@ Set `BACKEND_URL` in the Vercel project's environment variables to the deployed 
 ## License
 
 [MIT](LICENSE)
+
+## Handsoff notes
+
+<!-- handsoff-issue-158 -->
+- #158: Remove two dead CSS classes from globals.css: amount-caption, qr-caption
