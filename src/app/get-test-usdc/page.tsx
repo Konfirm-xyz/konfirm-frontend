@@ -144,7 +144,8 @@ export default function GetTestUsdcPage() {
       sendInFlight.current = false;
       return;
     }
-    if (!amount || Number(amount) <= 0) {
+    const amountNum = Number(amount);
+    if (!amount || Number.isNaN(amountNum) || amountNum <= 0) {
       setStatus2("Enter an amount greater than 0.");
       sendInFlight.current = false;
       return;
@@ -208,72 +209,6 @@ export default function GetTestUsdcPage() {
           <span className="mark">✓</span> Konfirm
         </div>
         <h1>Get test USDC</h1>
-        <p className="sub">For exercising checkout with a real wallet — not part of the merchant product.</p>
+   
 
-        <div className="callout">
-          This uses <strong>Freighter</strong> to receive test USDC from Stellar&apos;s reference anchor, then sends it on to
-          wherever you actually need it (e.g. a mobile wallet). Freighter just needs to be installed and set to Testnet — it
-          doesn&apos;t need to be the wallet you&apos;re testing checkout with.
-        </div>
-
-        {view === "step1" && (
-          <div>
-            <button type="button" className="primary" disabled={connecting} onClick={handleConnect}>
-              Connect Freighter &amp; get test USDC
-            </button>
-            <div
-              className={`status${status1 ? " error" : ""}`}
-              role="alert"
-              aria-live={status1 ? "assertive" : "polite"}
-            >
-              {status1}
-            </div>
-          </div>
-        )}
-
-        {view === "progress" && (
-          <div className="progress">
-            <div className="spin" />
-            <div className="stage">{progressStage}</div>
-          </div>
-        )}
-
-        {view === "step2" && (
-          <div>
-            <p className="sub">Test USDC landed in your Freighter account. Now send some to the wallet you&apos;re actually testing with.</p>
-            <div className="field">
-              <label htmlFor="dest">Destination address</label>
-              <input id="dest" type="text" placeholder="G..." autoComplete="off" spellCheck={false} value={dest} onChange={(e) => setDest(e.target.value)} />
-              <div className="hint">Must already have a USDC trustline — Konfirm can&apos;t add one for an address it never signs with.</div>
-            </div>
-            <div className="field">
-              <label htmlFor="amount">Amount</label>
-              <input id="amount" type="text" inputMode="decimal" value={amount} onChange={(e) => setAmount(e.target.value)} />
-            </div>
-            <button type="button" className="primary" disabled={sending} onClick={handleSend}>
-              Send USDC
-            </button>
-            <div
-              className={`status${status2 ? " error" : ""}`}
-              role="alert"
-              aria-live={status2 ? "assertive" : "polite"}
-            >
-              {status2}
-            </div>
-          </div>
-        )}
-
-        {view === "success" && (
-          <div className="success-box">
-            <div className="tick">✓</div>
-            <h1 className="success-title">Sent</h1>
-            <div className="success-detail">Check the destination wallet — the balance should update shortly.</div>
-            <button type="button" className="secondary" onClick={handleAnother}>
-              Send more
-            </button>
-          </div>
-        )}
-      </div>
-    </div>
-  );
-}
+/* … truncated 2858 chars — edit only what you need near the top … */

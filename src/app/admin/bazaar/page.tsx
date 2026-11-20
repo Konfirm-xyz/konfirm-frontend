@@ -34,6 +34,7 @@ export default function AdminBazaarPage() {
     return (sessionStorage.getItem("admin-bazaar-filter") as "" | ListingStatus) ?? "pending";
   });
   const [loading, setLoading] = useState(true);
+  const [refreshing, setRefreshing] = useState(false);
   const [pendingId, setPendingId] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
   // Monotonically increasing id for each load() call. Used to discard a
@@ -42,9 +43,16 @@ export default function AdminBazaarPage() {
   // more recent one.
   const requestIdRef = useRef(0);
 
-  async function load(status: string) {
+  async function load(status: string, opts?: { refresh?: boolean }) {
     const requestId = ++requestIdRef.current;
-    setLoading(true);
+    // Only the true initial load toggles `loading` (which unmounts the table
+    // and resets scroll). Row-action refetches use `refreshing` so the
+    // `.admin-table-wrap` scroll container stays mounted and keeps scrollTop.
+    if (opts?.refresh) {
+      setRefreshing(true);
+    } else {
+      setLoading(true);
+    }
     setError(null);
     const result = await apiFetch<Listing[]>(status ? `/admin/bazaar-listings?status=${status}` : "/admin/bazaar-listings");
     if (requestId !== requestIdRef.current) {
@@ -59,6 +67,7 @@ export default function AdminBazaarPage() {
       setError(result.ok ? "Could not load listings — try again." : result.message || "Could not load listings — try again.");
     }
     setLoading(false);
+    setRefreshing(false);
   }
 
   useEffect(() => {
@@ -83,7 +92,7 @@ export default function AdminBazaarPage() {
         setError(result.message || `Could not ${status === "approved" ? "approve" : "reject"} listing — try again.`);
         return;
       }
-      await load(filter);
+      await load(filter, { refresh: true });
     } finally {
       setPendingId(null);
     }
@@ -119,7 +128,7 @@ export default function AdminBazaarPage() {
         ) : listings.length === 0 ? (
           <div className="empty">No listings match this filter.</div>
         ) : (
-          <div className="admin-table-wrap">
+          <div className="admin-table-wrap" aria-busy={refreshing}>
             <table className="admin-table">
               <thead>
                 <tr>

@@ -46,6 +46,17 @@ function VolumeChart({
   const width = 640;
   const height = 160;
   const padding = 8;
+
+  // An empty report window (brand-new deployment, narrow date filter) yields
+  // no points; guard before indexing so the admin page can't crash.
+  if (points.length === 0) {
+    return (
+      <div className="empty" role="img" aria-label="Payment volume chart: no data for the last 7 days.">
+        No volume data for this period.
+      </div>
+    );
+  }
+
   const values = points.map((p) => Number(p.net_usdc));
   const max = Math.max(...values, 1);
   const step = (width - padding * 2) / (points.length - 1 || 1);
