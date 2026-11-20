@@ -14,6 +14,7 @@ Sibling repos: [konfirm-backend](https://github.com/konfirm-HQ/konfirm-backend) 
 | `/pay/:linkId` | `src/app/pay/[linkId]/page.tsx` | Checkout — Freighter *or* a SEP-7 QR code / tappable link for any Stellar mobile wallet, whichever the payer finishes first |
 | `/activity` | `src/app/activity/page.tsx` | Merchant dashboard — live payment feed, polls every 3s, per-asset totals |
 | `/cashout` | `src/app/cashout/page.tsx` | Fiat off-ramp — real SEP-10/SEP-24 flow against Stellar's reference anchor |
+| `/referrals` | `src/app/referrals/page.tsx` | Merchant referral link, promo-rate status, and a table of referred merchants |
 | `/forgot-password` | `src/app/forgot-password/page.tsx` | Requests a password-reset email. Gives the same reply whether or not the account exists |
 | `/reset-password` | `src/app/reset-password/page.tsx` | Sets a new password from the emailed link. Reached only with a `?token=` |
 | `/get-test-usdc` | `src/app/get-test-usdc/page.tsx` | Pulls test USDC from the reference anchor via Freighter, then forwards it to whatever wallet you're actually testing checkout with — not part of the merchant product. Needs the backend's `ENABLE_TESTNET_FAUCET=true`; off in production |
