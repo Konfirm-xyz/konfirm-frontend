@@ -143,7 +143,8 @@ export default function GetTestUsdcPage() {
       sendInFlight.current = false;
       return;
     }
-    if (!amount || Number(amount) <= 0) {
+    const amountNum = Number(amount);
+    if (!amount || Number.isNaN(amountNum) || amountNum <= 0) {
       setStatus2("Enter an amount greater than 0.");
       sendInFlight.current = false;
       return;
