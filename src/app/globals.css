@@ -1,16 +1,167 @@
+/* Hallmark · shape: Map/Diagram (kept) · genre: modern-minimal · theme: Dusk (deal 2/3, seed konfirm-non-custodial-payment-processor-b1ac·904a7288·2026-11-16·r0) · redesign: full
+ * hero: Settled (stats strip, headline, diagram below -- no photo) · nav: slate glass, retracts on scroll · footer: letter close · imagery: none (replaced by a built diagram, see redirect 3) · signature: the real payment flow, told twice -- once as a converging-lines diagram in the hero, once as four glass panels below · dusk: periwinkle-apricot/glass
+ * axes: dark/grotesk-sans/cool · posture: committed · contrast: pass · fold: pass · v2.0.0 */
+/* Hallmark · redirect 1: the user asked for a more professional fintech look
+ * with stock photography and dashboards, moving off Coral's stationery
+ * material. Delivered honestly with a real CC-BY library photograph and a
+ * real captured screenshot of the actual /pay checkout -- no fabricated
+ * customer scene, no built mock (gate 46a/84). */
+/* Hallmark · redirect 2: the user then asked to remove the sample checkout
+ * and replace the photo with "a satisfied customer smiling while paying
+ * with a phone" -- declined as a fabricated customer depiction (Konfirm has
+ * no real users pre-launch); the checkout capture was removed as asked, and
+ * the library was searched for a real tap-to-pay or phone-in-hand photo
+ * (12+ queries). None fit without misrepresenting what the photo shows (one
+ * candidate's screen visibly reads "Settings", another was a phone mid-
+ * repair). Reverted to the fog photograph, now with real motion. */
+/* Hallmark · redirect 3: the user then pointed at stripe.com's stats-strip +
+ * animated-burst section and asked for it in place of the image. Built as a
+ * diagram of the real reconciler job (many transfers converging on one
+ * verified ledger) in SVG lines and nodes, not a photo or a drawn scene
+ * (80); the three stat figures are Konfirm's own (already used once more,
+ * fully, in the Proof section below) -- never stripe.com's own numbers. */
+/* Hallmark · comp: skipped (no key) */
+/* Hallmark · waive 77 · code-text + "For merchants" read thin alone · each
+ * is the narrower half of a named composition (code-row's Split, who-grid's
+ * two-card Grid); their mass is the paired code sample / sibling card */
+/* Hallmark · dismiss 29 · .glass/.map-card/.code-sample read as "glow and
+ * wash" to the generic check, but glass-over-photo is Dusk's own named
+ * material (coral.md's do-not is a different theme's rule); no aurora, no
+ * mesh blob, no glow shadow -- this is the theme's Surfaces section, verbatim */
+/* Hallmark · scope note: the "/" route (class .landing) has the full
+ * Hallmark treatment (shape, hero, sections). The other 33 routes' own
+ * token system (--ink/--surface/--accent/... below) now points at Dusk's
+ * palette too (redirect 4), so the whole app shares one look, but they
+ * haven't had a structural pass (shape/hero/copy) yet -- base.css still
+ * scopes its bare-element rules to .landing for that reason; see the
+ * migration note at the top of that file. */
+/* Hallmark · redirect 4: the user asked to keep going across the rest of
+ * the site. Decided with the user (AskUserQuestion): keep the existing
+ * light/dark ThemeToggle working in both modes, with Dusk's one
+ * periwinkle accent replacing the old blue/purple two-accent system
+ * everywhere, not just on "/" -- per design.md's existing "no second
+ * signal color" rule, now applied app-wide instead of landing-only. */
+@import url("./tokens.css");
+@import url("./base.css");
+
+/*
+ * Design tokens — light, editorial-fintech palette (see docs/UI redesign notes).
+ * Values chosen and verified against WCAG AA (4.5:1 normal text / 3:1 large
+ * text) with a small contrast script; see PR description for the numbers.
+ * Replaces an earlier dark near-black/gold+teal theme the product owner
+ * rejected on sight — this is a different direction, not a recolor of it.
+ */
+/*
+ * Hallmark · Dusk reskin of the app shell (everything outside .landing):
+ * same token names, same components, zero per-component overrides --
+ * only the values move. --signal/--signal-ink now alias --accent/
+ * --accent-ink: Konfirm dropped the blue/purple two-accent system
+ * app-wide (design.md), merchant vs. agent is copy/placement, not color.
+ * Surfaces/text borrow Dusk's own "well" (light) and "paper" (dark)
+ * tokens from tokens.css so this never drifts from the landing page's
+ * palette; --success/--error/--warn are left alone (status, not brand).
+ */
 :root {
-  --ink: #0a0908;
-  --surface: #17140f;
-  --surface-2: #1e1a14;
-  --border: #2b251c;
-  --text-hi: #f5f3ee;
-  --text-lo: #b6ada0;
-  --text-faint: #8f8878;
-  --accent: #c3a06a;
-  --accent-ink: #1a1408;
-  --success: #3a9c7d;
-  --error: #d9704a;
-  --warn: #c98a3a;
+  color-scheme: light;
+
+  /* Surfaces -- Dusk's light "well" set (already used by the who-cards
+     on the landing page), not a bespoke light palette. */
+  --ink: var(--color-well);
+  --surface: var(--color-card);
+  --surface-2: var(--color-well-2);
+  --border: var(--color-well-rule);
+
+  /* Text */
+  --text-hi: var(--color-well-ink);
+  --text-lo: var(--color-well-muted);
+  --text-faint: color-mix(in oklab, var(--color-well-muted) 65%, var(--color-well) 35%);
+
+  /* Brand -- one periwinkle accent, re-tuned for a light surface
+     (see --color-accent-on-light in tokens.css). */
+  --accent: var(--color-accent-on-light);
+  --accent-ink: var(--color-light);
+  --signal: var(--accent);
+  --signal-ink: var(--accent-ink);
+
+  /* Status */
+  --success: #0e7a3a; /* 5.4:1 on --surface */
+  --error: #b91c1c; /* 6.5:1 on --surface */
+  --warn: #9a4a08; /* 6.3:1 on --surface */
+}
+
+/*
+ * Dark variant -- same token names, same components, zero per-component
+ * overrides. Surfaces/text/accent now point straight at Dusk's own dark
+ * tokens (tokens.css), so the app shell is the same palette as the
+ * landing page, not a lookalike. Follows system preference by default;
+ * [data-theme] is the explicit toggle override, set by ThemeToggle via
+ * localStorage + a pre-paint inline script in layout.tsx (avoids a flash
+ * of the wrong theme on load).
+ */
+@media (prefers-color-scheme: dark) {
+  :root:not([data-theme="light"]) {
+    color-scheme: dark;
+    --ink: var(--color-paper);
+    --surface: var(--color-paper-2);
+    --surface-2: var(--color-paper-3);
+    --border: var(--color-rule);
+    --text-hi: var(--color-ink);
+    --text-lo: var(--color-ink-2);
+    --text-faint: var(--color-muted);
+    --accent: var(--color-accent);
+    --accent-ink: var(--color-accent-ink);
+    --signal: var(--accent);
+    --signal-ink: var(--accent-ink);
+    --success: #4ade80;
+    --error: #f87171;
+    --warn: #fb923c;
+  }
+}
+:root[data-theme="dark"] {
+  color-scheme: dark;
+  --ink: var(--color-paper);
+  --surface: var(--color-paper-2);
+  --surface-2: var(--color-paper-3);
+  --border: var(--color-rule);
+  --text-hi: var(--color-ink);
+  --text-lo: var(--color-ink-2);
+  --text-faint: var(--color-muted);
+  --accent: var(--color-accent);
+  --accent-ink: var(--color-accent-ink);
+  --signal: var(--accent);
+  --signal-ink: var(--accent-ink);
+  --success: #4ade80;
+  --error: #f87171;
+  --warn: #fb923c;
+}
+
+.theme-toggle {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 44px;
+  height: 44px;
+  border-radius: 999px;
+  border: none;
+  /* Deliberately the same high-contrast pairing as .btn-primary, not the
+     subtle --surface/--border/--text-lo chrome tokens -- a control that's
+     supposed to be always-discoverable can't use tokens tuned for quiet
+     background chrome. Verified visually in both themes, not assumed. */
+  background: var(--accent);
+  color: var(--accent-ink);
+  cursor: pointer;
+  position: fixed;
+  bottom: 16px;
+  right: 16px;
+  z-index: 40;
+  box-shadow: 0 2px 10px rgba(0, 0, 0, 0.25);
+}
+.theme-toggle:hover {
+  opacity: 0.88;
+}
+.theme-toggle svg {
+  width: 20px;
+  height: 20px;
 }
 
 * {
@@ -23,11 +174,28 @@ body {
   padding: 0;
 }
 
+/* Landing nav's #features/#faq links jump-scroll smoothly; reduced-motion
+   users get the instant jump instead (combined with the other
+   prefers-reduced-motion rule further down for the marquee/sidebar). */
+html {
+  scroll-behavior: smooth;
+}
+@media (prefers-reduced-motion: reduce) {
+  html {
+    scroll-behavior: auto;
+  }
+}
+
 body {
   min-height: 100vh;
+  min-height: 100dvh;
   background: var(--ink);
   color: var(--text-hi);
   font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+}
+
+.mono {
+  font-family: ui-monospace, "SF Mono", Menlo, monospace;
 }
 
 /* Centered single-card pages (login, signup, new, pay, cashout, get-test-usdc) */
@@ -36,6 +204,7 @@ body {
   align-items: center;
   justify-content: center;
   min-height: 100vh;
+  min-height: 100dvh;
   padding: 24px;
 }
 
@@ -46,7 +215,9 @@ body {
   border: 1px solid var(--border);
   border-radius: 16px;
   padding: 32px;
-  box-shadow: 0 24px 60px rgba(0, 0, 0, 0.45);
+  box-shadow:
+    0 1px 2px rgba(22, 20, 15, 0.04),
+    0 16px 40px rgba(22, 20, 15, 0.08);
 }
 
 .card.narrow {
@@ -120,10 +291,10 @@ label {
 }
 .footer a {
   color: var(--accent);
-  text-decoration: none;
+  text-decoration: underline;
 }
 .footer a:hover {
-  text-decoration: underline;
+  text-decoration: none;
 }
 
 .hint {
@@ -146,6 +317,30 @@ input {
 input:focus {
   outline: 2px solid var(--accent);
   outline-offset: 1px;
+}
+
+.password-input {
+  position: relative;
+}
+.password-input input {
+  padding-right: 64px;
+}
+.password-input .password-toggle {
+  position: absolute;
+  top: 50%;
+  right: 6px;
+  transform: translateY(-50%);
+  width: auto;
+  padding: 6px 10px;
+  border-radius: 6px;
+  background: transparent;
+  color: var(--accent);
+  font-size: 12.5px;
+  font-weight: 600;
+  text-decoration: underline;
+}
+.password-input .password-toggle:hover {
+  text-decoration: none;
 }
 
 select {
@@ -184,12 +379,16 @@ select:focus {
 button {
   width: 100%;
   padding: 14px;
+  min-height: 48px;
   border-radius: 999px;
   border: none;
   font-size: 15px;
   font-weight: 700;
   cursor: pointer;
   font-family: inherit;
+  display: flex;
+  align-items: center;
+  justify-content: center;
 }
 
 button.primary {
@@ -198,7 +397,9 @@ button.primary {
   margin-bottom: 10px;
 }
 button.primary:disabled {
-  opacity: 0.5;
+  background: var(--border);
+  color: var(--text-lo);
+  opacity: 1;
   cursor: not-allowed;
 }
 
@@ -209,6 +410,17 @@ button.secondary {
   margin-top: 10px;
 }
 
+/*
+ * Shared status / error message region (issue #45).
+ *
+ * Every form renders its feedback in a `.status` element. For screen readers
+ * to announce changes, the element must be a live region that already exists
+ * in the DOM before its text changes. Pages add `role="alert"` (or
+ * `aria-live="assertive"` for errors / `"polite"` for status) to the element;
+ * this rule keeps it rendered (min-height, never display:none / visibility:
+ * hidden / content collapsed) so the live region is present and observable
+ * even while empty.
+ */
 .status {
   font-size: 14px;
   color: var(--text-lo);
@@ -219,9 +431,43 @@ button.secondary {
 .status.error {
   color: var(--error);
 }
+/* Never hide the live region: keep it in the accessibility tree at all times. */
+.status[aria-live],
+.status[role="alert"],
+.status[role="status"] {
+  display: block;
+  visibility: visible;
+}
 
 .hidden {
   display: none;
+}
+
+/* Screen-reader-only content (e.g. a visible chart's data table, a label for
+   a visually-obvious input) — present in the accessibility tree, removed
+   from layout. Previously referenced by a couple of pages with no matching
+   rule, so that content rendered fully visible instead of being sr-only. */
+.visually-hidden {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  padding: 0;
+  margin: -1px;
+  overflow: hidden;
+  clip: rect(0, 0, 0, 0);
+  white-space: nowrap;
+  border: 0;
+}
+
+/* Every interactive element gets a consistent, visible keyboard-focus
+   indicator — inputs/selects already set their own above. */
+a:focus-visible,
+button:focus-visible,
+summary:focus-visible,
+[role="button"]:focus-visible,
+[tabindex]:focus-visible {
+  outline: 2px solid var(--accent);
+  outline-offset: 2px;
 }
 
 /* Currency toggle (new, cashout) */
@@ -233,6 +479,10 @@ button.secondary {
 }
 .ctoggle {
   width: auto;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-height: 44px;
   padding: 8px 20px;
   border-radius: 999px;
   border: 1px solid var(--border);
@@ -255,6 +505,24 @@ button.secondary {
   font-size: 12.5px;
   color: var(--text-faint);
   margin-bottom: 24px;
+}
+
+/* Forced colors (e.g. Windows High Contrast) strip custom backgrounds, so
+   anything that only communicated state via `background: var(--accent)`
+   — the primary button and the active currency toggle — can disappear
+   into the surrounding surface. Give them an explicit border and rely on
+   system colors so the shapes and active state stay visible. */
+@media (forced-colors: active) {
+  button.primary {
+    border: 2px solid ButtonText;
+  }
+  .ctoggle {
+    border: 1px solid ButtonText;
+  }
+  .ctoggle.active {
+    border: 2px solid Highlight;
+    outline: 1px solid Highlight;
+  }
 }
 
 /* Amount hero (new) */
@@ -324,6 +592,10 @@ input.amount-input:focus {
   flex-wrap: wrap;
 }
 .chip {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-height: 44px;
   padding: 6px 14px;
   border-radius: 999px;
   border: 1px solid var(--border);
@@ -368,6 +640,9 @@ input.amount-input:focus {
 a.qr-box {
   display: inline-block;
   background: #fff;
+  /* A plain white box needs its own border now that cards are white too —
+     without it the QR box had no visible edge against the card at all. */
+  border: 1px solid var(--border);
   padding: 12px;
   border-radius: 12px;
   line-height: 0;
@@ -499,6 +774,10 @@ a.txlink {
 .nav a,
 .nav button {
   width: auto;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-height: 44px;
   font-size: 13px;
   color: var(--text-lo);
   text-decoration: none;
@@ -506,7 +785,7 @@ a.txlink {
   border: none;
   cursor: pointer;
   font-family: inherit;
-  padding: 0;
+  padding: 10px 4px;
 }
 .nav a:hover,
 .nav button:hover {
@@ -639,8 +918,15 @@ a.txlink {
 @media (prefers-reduced-motion: reduce) {
   .waiting-banner .spin,
   .progress .spin,
-  .live-dot span.d {
+  .live-dot span.d,
+  /* Every new payment landing fades/slides in via `land` — this ran on every
+     live-poll update regardless of motion preference until now. */
+  .payment {
     animation: none;
+  }
+  /* Mobile admin-nav drawer slides in/out — respect reduced motion too. */
+  .admin-sidebar {
+    transition: none;
   }
 }
 
@@ -648,6 +934,19 @@ a.txlink {
 .admin-shell {
   display: flex;
   min-height: 100vh;
+  min-height: 100dvh;
+  position: relative;
+}
+/* Hamburger + backdrop for the mobile off-canvas nav drawer — hidden on
+   desktop, where the sidebar is always visible. See the ≤768px breakpoint
+   below for the drawer itself. These two elements already existed in the
+   admin layout's markup with no matching CSS at all, so the toggle button
+   rendered as a bare, unstyled "☰"/"✕" and the backdrop never appeared. */
+.admin-sidebar-toggle {
+  display: none;
+}
+.admin-sidebar-backdrop {
+  display: none;
 }
 .admin-sidebar {
   width: 220px;
@@ -683,7 +982,10 @@ a.txlink {
   margin-bottom: 2px;
 }
 .admin-sidebar-nav a {
-  padding: 10px 12px;
+  display: flex;
+  align-items: center;
+  min-height: 48px;
+  padding: 0 12px;
   border-radius: 8px;
   color: var(--text-lo);
   text-decoration: none;
@@ -706,8 +1008,11 @@ a.txlink {
   margin: 0 0 8px;
 }
 .admin-sidebar-footer button {
+  display: flex;
+  align-items: center;
   width: auto;
-  padding: 0;
+  min-height: 44px;
+  padding: 10px 4px;
   font-size: 13px;
   color: var(--text-lo);
   background: none;
@@ -720,6 +1025,7 @@ a.txlink {
 }
 .admin-main {
   flex: 1;
+  min-width: 0;
   max-width: 960px;
   padding: 40px 44px;
 }
@@ -849,14 +1155,59 @@ a.txlink {
 .admin-table button {
   width: auto;
   padding: 6px 14px;
+  min-height: 44px;
   font-size: 12.5px;
   margin: 0;
   border: 1px solid var(--border);
   background: transparent;
   color: var(--text-hi);
 }
+.admin-table td .button-group {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  align-items: center;
+}
 .admin-table button:hover {
   border-color: var(--accent);
+}
+
+/* Pagination row used at the bottom of every paginated admin table (payments,
+   merchants, users, pay-links, x402 settlements, notifications). Several of
+   these pass the "Load more" button no class at all, which meant it fell
+   back to the base `button` rule — full width, pill radius, no background —
+   inside what's meant to be a compact inline row. */
+.admin-pagination,
+.pagination {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  flex-wrap: wrap;
+  margin-top: 16px;
+  font-size: 13px;
+  color: var(--text-lo);
+}
+.admin-pagination button,
+.pagination button {
+  width: auto;
+  min-height: 40px;
+  padding: 8px 16px;
+  margin: 0;
+  border-radius: 999px;
+  border: 1px solid var(--border);
+  background: var(--surface);
+  color: var(--text-hi);
+  font-size: 13px;
+  font-weight: 600;
+}
+.admin-pagination button:hover,
+.pagination button:hover {
+  border-color: var(--accent);
+}
+.admin-pagination button:disabled,
+.pagination button:disabled {
+  opacity: 0.6;
+  cursor: not-allowed;
 }
 
 .filter-pills {
@@ -896,19 +1247,22 @@ a.txlink {
   text-transform: uppercase;
   letter-spacing: 0.04em;
 }
+/* Tint backgrounds recomputed for the new --success/--error/--warn (12%
+   over white) so the pill text keeps ≥4.5:1 contrast on its own tint —
+   the old 15%-opacity dark-theme tints, left as-is, landed at ~4.1:1. */
 .status-pill.active {
-  background: rgba(58, 156, 125, 0.15);
+  background: rgba(14, 122, 58, 0.12);
   color: var(--success);
 }
 .status-pill.suspended {
-  background: rgba(217, 112, 74, 0.15);
+  background: rgba(185, 28, 28, 0.12);
   color: var(--error);
 }
 .status-pill.paid,
 .status-pill.completed,
 .status-pill.settled,
 .status-pill.approved {
-  background: rgba(58, 156, 125, 0.15);
+  background: rgba(14, 122, 58, 0.12);
   color: var(--success);
 }
 .status-pill.disputed,
@@ -917,7 +1271,7 @@ a.txlink {
 .status-pill.refunded,
 .status-pill.failed,
 .status-pill.rejected {
-  background: rgba(217, 112, 74, 0.15);
+  background: rgba(185, 28, 28, 0.12);
   color: var(--error);
 }
 .status-pill.held,
@@ -929,8 +1283,12 @@ a.txlink {
 .status-pill.pending_user,
 .status-pill.on_hold,
 .status-pill.incomplete {
-  background: rgba(201, 138, 58, 0.15);
+  background: rgba(154, 74, 8, 0.12);
   color: var(--warn);
+}
+.status-pill.inactive {
+  background: var(--surface-2);
+  color: var(--text-faint);
 }
 
 .activity-feed {
@@ -993,4 +1351,767 @@ a.txlink {
 .admin-status-row .mono {
   font-size: 14px;
   color: var(--text-hi);
+}
+
+/* Public landing page ("/" for unauthenticated visitors). Full Hallmark
+   redesign, Dusk material: money software at the calm end of the day. A
+   real photograph (fog valley at dusk, CC BY, Thomas Bresson/Wikimedia
+   Commons, credited in the footer) fills the hero behind the head; the
+   product sits beside it as a real captured checkout screenshot in a
+   glass card, not a mock. The Map/Diagram shape (the real payment flow,
+   Hallmark's own signature for this page) carries over from the Coral
+   pass, redressed in glass on slate. Periwinkle marks "done/settled";
+   apricot marks "open/waiting" -- never a large fill, per Dusk's own
+   Do-nots. Scoped under .landing throughout (see base.css's migration
+   note) so this doesn't bleed into the 25+ routes not yet on this system. */
+
+.landing {
+  padding-bottom: var(--space-4xl);
+}
+
+.top-banner {
+  margin: 0;
+  padding: var(--space-xs) var(--gutter);
+  text-align: center;
+  font-size: var(--text-sm);
+  color: var(--color-muted);
+  background: var(--color-paper-2);
+  border-bottom: var(--rule-hair) solid var(--color-rule);
+}
+
+.landing .site-nav {
+  position: sticky;
+  top: 0;
+  z-index: var(--z-sticky-nav);
+  background: color-mix(in oklab, var(--color-paper) 72%, transparent);
+  backdrop-filter: blur(var(--glass-blur));
+  -webkit-backdrop-filter: blur(var(--glass-blur));
+  border-bottom: var(--rule-hair) solid var(--color-rule);
+  transition: transform var(--dur-short) var(--ease-out);
+}
+.landing .site-nav.is-hidden {
+  transform: translateY(-100%);
+}
+.landing .nav-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  min-height: 64px;
+}
+.landing .wordmark {
+  font-family: var(--font-display);
+  font-weight: var(--display-weight);
+  font-size: var(--text-lg);
+  letter-spacing: var(--tracking-display);
+  text-decoration: none;
+  color: var(--color-ink);
+}
+.landing .nav-brand {
+  display: flex;
+  align-items: center;
+  gap: var(--space-md);
+}
+/* "Built on Stellar": Stellar Development Foundation's own suggested
+   wording for this exact case (brand-policy.md § Building on Stellar),
+   set apart from Konfirm's own wordmark and well under the size that
+   would make it "the most prominent feature" of the page -- the logo
+   itself is shown unaltered (native colour, square aspect, no stretch). */
+.landing .stellar-badge {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.4em;
+  font-size: var(--text-xs);
+  color: var(--color-muted);
+  text-decoration: none;
+  padding: 0.3em 0.7em;
+  border-radius: var(--radius-pill);
+  background: color-mix(in oklab, var(--color-light) 5%, transparent);
+}
+.landing .stellar-badge:hover {
+  color: var(--color-ink-2);
+}
+.landing .stellar-badge img {
+  display: block;
+  width: 14px;
+  height: 14px;
+}
+.landing .nav-actions {
+  display: flex;
+  align-items: center;
+  gap: var(--space-lg);
+}
+.landing .nav-actions > a:first-child {
+  font-size: var(--text-sm);
+  text-decoration: none;
+  color: var(--color-ink-2);
+  white-space: nowrap;
+}
+/* Blocking per the design review bar: this row must never wrap "Log in"
+   onto two lines. The Stellar badge's label is the first thing to give
+   on a narrow phone; the icon alone still carries the disclosure. */
+@media (max-width: 26rem) {
+  .landing .nav-actions {
+    gap: var(--space-sm);
+  }
+  .landing .stellar-badge span {
+    display: none;
+  }
+}
+.landing .nav-actions > a:first-child:hover {
+  text-decoration: underline;
+}
+.landing a:focus-visible {
+  outline: 2px solid var(--color-focus);
+  outline-offset: 2px;
+}
+@media (prefers-reduced-motion: reduce) {
+  .landing .btn,
+  .landing .site-nav {
+    transition-duration: 0.01ms;
+  }
+}
+
+/* Controls: one periwinkle pill, a ghost pill beside it (coral.md's
+   letterpress cards are gone with the theme; this is Dusk's own Controls
+   section verbatim). */
+.landing .btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: var(--space-xs);
+  min-height: 48px;
+  padding: 0 var(--space-lg);
+  border: 0;
+  border-radius: var(--radius-pill);
+  background: var(--color-accent);
+  color: var(--color-accent-ink);
+  font: 600 0.9375rem / 1 var(--font-body);
+  box-shadow: inset 0 1px 0 color-mix(in oklab, var(--color-light) 35%, transparent);
+  white-space: nowrap;
+  text-decoration: none;
+  cursor: pointer;
+  transition: background-color var(--dur-short) var(--ease-out), box-shadow var(--dur-short) var(--ease-out);
+}
+.landing .btn:hover {
+  background: var(--color-accent-hi);
+  box-shadow: inset 0 1px 0 color-mix(in oklab, var(--color-light) 35%, transparent), 0 0 0 4px var(--color-accent-soft);
+}
+.landing .btn:active {
+  background: var(--color-accent-deep);
+  box-shadow: none;
+}
+.landing .btn--quiet:active {
+  background: color-mix(in oklab, var(--color-light) 12%, transparent);
+}
+.landing .btn--quiet {
+  background: color-mix(in oklab, var(--color-light) 4%, transparent);
+  color: var(--color-ink);
+  box-shadow: none;
+}
+.landing .btn--quiet:hover {
+  background: color-mix(in oklab, var(--color-light) 8%, transparent);
+}
+
+/* Hero: Stage posture -- a real photograph fills the screen, the head on
+   its palest part over a fog scrim, the real product in a glass card on
+   the darker side. */
+.landing .hero {
+  position: relative;
+  padding-block: var(--space-3xl) 0;
+  overflow: hidden;
+  background: var(--color-paper);
+}
+/* A real-figures strip above the diagram, Stripe's own layout technique --
+   Konfirm's own three facts (already used once more, fully, in the Proof
+   section below), never the reference site's numbers. */
+.landing .hero-stats {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: var(--space-lg);
+  max-width: 44rem;
+  margin-bottom: var(--space-3xl);
+}
+.landing .hero-stats b {
+  display: block;
+  font: 500 var(--text-2xl) / 1 var(--font-display);
+  font-variant-numeric: tabular-nums;
+  color: var(--color-accent-hi);
+  margin-bottom: var(--space-2xs);
+}
+.landing .hero-stats span {
+  font-size: var(--text-sm);
+  color: var(--color-muted);
+}
+.landing .hero-row {
+  position: relative;
+  z-index: 1;
+  width: 100%;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--space-xl);
+  flex-wrap: wrap;
+}
+.landing .hero-text {
+  color: var(--color-ink);
+  max-width: 34rem;
+  flex: 1 1 28rem;
+}
+.landing .hero h1 {
+  font-size: var(--text-display);
+  margin-bottom: var(--space-md);
+  color: var(--color-ink);
+}
+.landing .hero .lead {
+  color: var(--color-muted);
+  margin-bottom: var(--space-lg);
+}
+.landing .hero-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--space-sm);
+  margin-bottom: var(--space-lg);
+}
+.landing .hero-note {
+  display: inline-block;
+  padding: 0.5em 0.9em;
+  border-radius: var(--radius-pill);
+  background: color-mix(in oklab, var(--color-light) 6%, transparent);
+  font-size: var(--text-sm);
+  color: var(--color-ink-2);
+  max-width: 32ch;
+}
+
+/* Confirmation rings: six rings converging on one settled center, a
+   real cluster of confirmed payments marked right at the middle --
+   Konfirm's own geometry (the verification steps already named in the
+   Map section below), not a decorative mesh (80, 29), and not the
+   reference photo's firearm or range. A ping ripples outward from the
+   center on a loop, Stripe's hero-motion spirit rebuilt in Dusk's own
+   periwinkle-to-apricot palette. Draws in once on load; the ping is
+   decorative only, so reduced motion (base.css, global) simply leaves
+   it at its first frame with nothing lost (62, 27). */
+.landing .hero-target {
+  display: block;
+  flex: 0 1 26rem;
+  width: 100%;
+  max-width: 26rem;
+  height: auto;
+  overflow: visible;
+}
+@media (max-width: 60rem) {
+  .landing .hero-target {
+    max-width: 18rem;
+    margin-inline: auto;
+  }
+}
+.landing .hero-target__ring {
+  fill: none;
+  stroke-width: 1.5;
+  opacity: 0.7;
+}
+.landing .hero-target__hits circle {
+  fill: var(--color-accent-hi);
+}
+.landing .hero-target__core circle {
+  fill: color-mix(in oklab, var(--color-accent-hi) 70%, transparent);
+  filter: blur(10px);
+  animation: target-core-pulse 3s var(--ease-in-out) infinite;
+}
+@keyframes target-core-pulse {
+  0%, 100% { opacity: 0.6; }
+  50% { opacity: 1; }
+}
+.landing .hero-target__ping circle {
+  fill: none;
+  stroke: var(--color-accent-hi);
+  stroke-width: 1.5;
+  transform-box: fill-box;
+  transform-origin: center;
+  animation: target-ping 6s var(--ease-out) infinite;
+  animation-delay: var(--delay, 0s);
+}
+@keyframes target-ping {
+  0% { transform: scale(1); opacity: 0.55; }
+  100% { transform: scale(6); opacity: 0; }
+}
+.js .landing .hero-target__ring,
+.js .landing .hero-target__hits circle {
+  opacity: 0;
+  transform: scale(0.9);
+  transform-box: fill-box;
+  transform-origin: center;
+  transition: opacity var(--dur-long) var(--ease-out), transform var(--dur-long) var(--ease-out);
+}
+.js .landing .hero-target.is-in .hero-target__ring {
+  opacity: 0.7;
+  transform: scale(1);
+}
+.js .landing .hero-target.is-in .hero-target__hits circle {
+  opacity: 1;
+  transform: scale(1);
+}
+
+/* The Map/Diagram: the payment flow as four glass panels on slate, a
+   periwinkle dot carrying "done" through to the last card. */
+.landing .map {
+  padding: var(--section-gap) 0 var(--section-gap-l);
+  background: var(--color-paper);
+}
+.landing .map h2 {
+  margin-bottom: var(--space-3xl);
+  max-width: 28ch;
+  color: var(--color-ink);
+}
+.landing .map-diagram {
+  position: relative;
+  display: grid;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  gap: var(--space-lg);
+  list-style: none;
+  margin: 0;
+  padding: 0;
+}
+.landing .map-diagram::before {
+  content: "";
+  position: absolute;
+  top: 50%;
+  left: 4%;
+  right: 4%;
+  height: 1px;
+  background: var(--color-rule);
+  z-index: 0;
+}
+.landing .map-node {
+  position: relative;
+  z-index: 1;
+  min-width: 0;
+}
+.landing .map-card {
+  position: relative;
+  min-width: 0;
+  padding: var(--space-xl);
+  border-radius: var(--radius-card);
+  background: var(--glass);
+  -webkit-backdrop-filter: blur(var(--glass-blur)) saturate(1.35);
+  backdrop-filter: blur(var(--glass-blur)) saturate(1.35);
+  box-shadow: var(--glass-hi), var(--shadow-card);
+}
+.landing .map-card__num {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 28px;
+  height: 28px;
+  margin-bottom: var(--space-sm);
+  border-radius: 50%;
+  background: color-mix(in oklab, var(--color-light) 7%, transparent);
+  font-family: var(--font-body);
+  font-weight: 500;
+  font-variant-numeric: tabular-nums;
+  font-size: var(--text-sm);
+  color: var(--color-ink-2);
+}
+.landing .map-card h3 {
+  font-size: var(--text-title);
+  margin-bottom: var(--space-2xs);
+  color: var(--color-ink);
+}
+.landing .map-card p {
+  font-size: var(--text-sm);
+  color: var(--color-muted);
+  max-width: none;
+}
+.landing .map-card--paid {
+  box-shadow: var(--glass-hi), var(--shadow-card), 0 0 0 1px var(--color-accent-deep);
+}
+.landing .map-card--paid .map-card__num {
+  background: var(--color-accent);
+  color: var(--color-accent-ink);
+}
+.landing .map-stamp {
+  position: absolute;
+  top: var(--space-md);
+  right: var(--space-md);
+  padding: 0.15em 0.6em;
+  border-radius: var(--radius-pill);
+  background: var(--color-accent);
+  font-family: var(--font-body);
+  font-weight: 600;
+  font-size: var(--text-sm);
+  color: var(--color-accent-ink);
+}
+.js [data-reveal] {
+  opacity: 0;
+  transform: translateY(8px);
+  transition: opacity var(--dur-long) var(--ease-out), transform var(--dur-long) var(--ease-out);
+  transition-delay: calc(var(--i, 0) * 80ms);
+}
+.js [data-reveal].is-in {
+  opacity: 1;
+  transform: none;
+}
+@media (prefers-reduced-motion: reduce) {
+  .js [data-reveal] {
+    opacity: 1;
+    transform: none;
+    transition: none;
+  }
+}
+
+/* Proof: a ruled tally of real figures, Dusk's own Range pattern. */
+.landing .proof {
+  padding: var(--section-gap-l) 0 var(--section-gap);
+  background: var(--color-paper);
+}
+.landing .proof h2 {
+  margin-bottom: var(--space-2xl);
+  color: var(--color-ink);
+}
+.landing .stats {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+}
+.landing .stats > * {
+  padding-inline: var(--space-lg);
+  border-left: var(--rule-hair) solid var(--color-rule);
+}
+.landing .stats > :first-child {
+  padding-left: 0;
+  border-left: 0;
+}
+.landing .stats b {
+  display: block;
+  margin-bottom: var(--space-xs);
+  font: 500 var(--text-2xl) / 1 var(--font-display);
+  font-variant-numeric: tabular-nums;
+  color: var(--color-accent-hi);
+}
+.landing .stats span {
+  color: var(--color-muted);
+  font-size: var(--text-sm);
+}
+
+/* Code: a glass panel, the real request body beside what it means. */
+.landing .code {
+  padding: var(--section-gap) 0;
+  background: var(--color-paper-2);
+  border-block: var(--rule-hair) solid var(--color-rule);
+}
+.landing .code-row {
+  display: grid;
+  grid-template-columns: minmax(0, 5fr) minmax(0, 7fr);
+  gap: var(--space-2xl);
+  align-items: center;
+}
+.landing .code-text h2 {
+  color: var(--color-ink);
+}
+.landing .code-text p {
+  color: var(--color-muted);
+}
+.landing .code-sample {
+  margin: 0;
+  padding: var(--space-lg);
+  border-radius: var(--radius-card);
+  background: var(--glass);
+  -webkit-backdrop-filter: blur(var(--glass-blur)) saturate(1.35);
+  backdrop-filter: blur(var(--glass-blur)) saturate(1.35);
+  box-shadow: var(--glass-hi), var(--shadow-card);
+  color: var(--color-ink-2);
+  overflow-x: auto;
+}
+.landing .code-sample code {
+  font-family: ui-monospace, "SF Mono", Menlo, monospace;
+  font-size: var(--text-sm);
+  line-height: 1.6;
+  white-space: pre;
+}
+
+/* Who it's for: merchant vs. agent, told by copy and section order, never
+   by a second signal colour (design.md § Brand). Bone wells, Dusk's light
+   surface for a block that isn't the hero product. */
+.landing .who {
+  padding: var(--section-gap) 0;
+  background: var(--color-paper);
+}
+.landing .who-grid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: var(--space-lg);
+}
+.landing .who-card {
+  padding: var(--space-xl);
+  border-radius: var(--radius-card);
+  background: var(--color-well);
+  box-shadow: var(--shadow-card);
+}
+.landing .who-card h3 {
+  margin-bottom: var(--space-md);
+  color: var(--color-well-ink);
+}
+.landing .who-card ul {
+  margin: 0;
+  padding: 0;
+  list-style: none;
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-sm);
+}
+.landing .who-card li {
+  padding-left: var(--space-md);
+  position: relative;
+  color: var(--color-well-ink);
+}
+.landing .who-card li::before {
+  content: "";
+  position: absolute;
+  left: 0;
+  top: 0.65em;
+  width: 6px;
+  height: 1px;
+  background: var(--color-well-muted);
+}
+
+/* FAQ: a ruled list with a dot, never boxed segments (Dusk's Controls). */
+.landing .faq {
+  padding: var(--section-gap) 0;
+  background: var(--color-paper);
+}
+.landing .faq h2 {
+  margin-bottom: var(--space-2xl);
+  max-width: 32ch;
+  color: var(--color-ink);
+}
+.landing .faq-list {
+  display: flex;
+  flex-direction: column;
+}
+.landing .faq-item {
+  padding: var(--space-xl) 0;
+  border-top: var(--rule-hair) solid var(--color-rule);
+}
+.landing .faq-item:last-child {
+  border-bottom: var(--rule-hair) solid var(--color-rule);
+}
+.landing .faq-item summary {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--space-md);
+  cursor: pointer;
+  font-weight: 500;
+  color: var(--color-ink);
+  list-style: none;
+}
+.landing .faq-item summary::-webkit-details-marker {
+  display: none;
+}
+.landing .faq-item summary::after {
+  content: "";
+  flex: none;
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  background: var(--color-rule);
+  transition: background-color var(--dur-short) var(--ease-out);
+}
+.landing .faq-item[open] summary::after {
+  background: var(--color-accent);
+}
+.landing .faq-item summary:focus-visible {
+  outline: 2px solid var(--color-focus);
+  outline-offset: 4px;
+}
+.landing .faq-item p {
+  margin-top: var(--space-sm);
+  padding-right: 10%;
+  color: var(--color-muted);
+  max-width: 60ch;
+}
+.landing .faq-item p a {
+  color: var(--color-accent-hi);
+  text-decoration: underline;
+}
+.landing .faq-item:not([open]) p {
+  display: none;
+}
+
+/* Close: a periwinkle-lit band, the only large use of the accent's own
+   soft tone on the page -- still under its footprint (23). */
+.landing .close {
+  padding: var(--section-gap-l) 0;
+  background: linear-gradient(180deg, var(--color-paper-2), var(--color-paper));
+}
+.landing .close h2 {
+  margin-bottom: var(--space-xl);
+  max-width: 20ch;
+  color: var(--color-ink);
+}
+.landing .close-row {
+  text-align: left;
+}
+
+.landing .letter-close {
+  padding: var(--space-2xl) 0 var(--space-xl);
+  background: var(--color-paper);
+}
+.landing .letter-close__mark {
+  font-family: var(--font-display);
+  font-weight: var(--display-weight);
+  color: var(--color-ink);
+  margin: 0 0 var(--space-2xs);
+}
+.landing .letter-close__line {
+  color: var(--color-muted);
+  margin: 0 0 var(--space-lg);
+  font-size: var(--text-sm);
+}
+.landing .letter-close nav {
+  display: flex;
+  gap: var(--space-lg);
+  margin-bottom: var(--space-md);
+}
+.landing .letter-close nav a {
+  font-size: var(--text-sm);
+  color: var(--color-ink-2);
+  text-decoration: underline;
+}
+.landing .letter-close__legal {
+  margin-top: var(--space-md);
+  max-width: 56ch;
+  font-size: var(--text-xs);
+  color: var(--color-muted);
+}
+
+@media (max-width: 60rem) {
+  .landing .map-diagram {
+    grid-template-columns: minmax(0, 1fr);
+  }
+  .landing .map-diagram::before {
+    display: none;
+  }
+  .landing .who-grid {
+    grid-template-columns: minmax(0, 1fr);
+  }
+  .landing .code-row {
+    grid-template-columns: minmax(0, 1fr);
+  }
+  .landing .stats {
+    grid-template-columns: minmax(0, 1fr);
+  }
+  .landing .stats > * {
+    padding: var(--space-md) 0;
+    border-left: 0;
+    border-top: var(--rule-hair) solid var(--color-rule);
+  }
+  .landing .stats > :first-child {
+    border-top: 0;
+  }
+}
+
+@media (forced-colors: active) {
+  .landing .btn,
+  .landing .map-card,
+  .landing .who-card,
+  .landing .code-sample {
+    border: 1px solid ButtonText;
+  }
+}
+
+/* ── Responsive breakpoints ────────────────────────────────────────────────── */
+
+/* Tablet/phone: ≤ 768 px — the sidebar becomes an off-canvas drawer, opened
+   by the hamburger button and closed by the backdrop, Escape-free-form
+   click-outside, or the same button again (all already wired up in
+   admin/layout.tsx; this is the CSS that was missing for it). With ~20 nav
+   links across 4 groups, wrapping them into a horizontal bar (the previous
+   approach) was impractical at phone width. */
+@media (max-width: 768px) {
+  .admin-sidebar-toggle {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    position: fixed;
+    top: 16px;
+    left: 16px;
+    z-index: 60;
+    width: 44px;
+    height: 44px;
+    padding: 0;
+    margin: 0;
+    border-radius: 10px;
+    border: 1px solid var(--border);
+    background: var(--surface);
+    color: var(--text-hi);
+    font-size: 18px;
+    box-shadow: 0 2px 8px rgba(22, 20, 15, 0.1);
+  }
+  .admin-sidebar {
+    position: fixed;
+    inset: 0 auto 0 0;
+    width: min(80vw, 300px);
+    z-index: 50;
+    border-right: 1px solid var(--border);
+    transform: translateX(-100%);
+    transition: transform 0.2s ease;
+    overflow-y: auto;
+  }
+  .admin-shell.sidebar-open .admin-sidebar {
+    transform: translateX(0);
+    box-shadow: 4px 0 24px rgba(22, 20, 15, 0.12);
+  }
+  .sidebar-open .admin-sidebar-backdrop {
+    display: block;
+    position: fixed;
+    inset: 0;
+    z-index: 45;
+    border: none;
+    padding: 0;
+    margin: 0;
+    background: rgba(22, 20, 15, 0.32);
+  }
+  .admin-main {
+    padding: 76px 16px 20px;
+  }
+  .admin-main h1 {
+    font-size: 22px;
+  }
+  .stat-grid {
+    grid-template-columns: repeat(2, 1fr);
+  }
+}
+
+/* Phone: ≤ 480 px */
+@media (max-width: 480px) {
+  .page-center {
+    padding: 16px;
+    align-items: flex-start;
+    padding-top: 32px;
+  }
+  .card {
+    padding: 24px 16px;
+    border-radius: 12px;
+  }
+  .amount-display {
+    font-size: 36px;
+  }
+  .primary,
+  .secondary {
+    font-size: 15px;
+    padding: 14px 16px;
+    min-height: 48px; /* touch-target */
+  }
+  .stat-grid {
+    grid-template-columns: 1fr;
+  }
+  .admin-inline-form {
+    flex-direction: column;
+  }
+  .admin-inline-form button {
+    width: 100%;
+  }
+  table {
+    font-size: 13px;
+  }
 }

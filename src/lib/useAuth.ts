@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { useRouter } from "next/navigation";
 import { API_BASE } from "./api";
 
@@ -38,26 +38,81 @@ export function useRequireAuth<T = unknown>(options: UseRequireAuthOptions<T>): 
   const { meEndpoint, loginPath, skip, select } = options;
   const [resolved, setResolved] = useState(Boolean(skip));
   const [data, setData] = useState<T | null>(null);
+  const prevSkipRef = useRef(Boolean(skip));
 
   useEffect(() => {
+    // Reset resolved when skip transitions from true to false so the auth
+    // gate blocks rendering until the re-check actually completes (#124).
+    if (prevSkipRef.current && !skip) {
+      setResolved(false);
+      setData(null);
+    }
+    prevSkipRef.current = Boolean(skip);
     if (skip) return;
     let cancelled = false;
-    (async () => {
-      const res = await fetch(`${API_BASE}${meEndpoint}`, { credentials: "include" });
-      if (cancelled) return;
-      if (!res.ok) {
-        router.push(loginPath);
-        return;
+
+    function check() {
+      (async () => {
+        try {
+          const res = await fetch(`${API_BASE}${meEndpoint}`, { credentials: "include" });
+          if (cancelled) return;
+          if (!res.ok) {
+            router.push(loginPath);
+            return;
+          }
+          // Guard against a 200 with an empty/non-JSON body: an unguarded
+          // res.json() would throw and leave `resolved` false forever.
+          const body = await res.json().catch(() => null);
+          if (cancelled) return;
+          if (body === null) {
+            router.push(loginPath);
+            return;
+          }
+          setData(select ? select(body) : (body as T));
+          setResolved(true);
+        } catch {
+          // Any other unexpected failure (network error, select() throwing)
+          // must still reach a terminal state rather than hanging the gate.
+          if (cancelled) return;
+          router.push(loginPath);
+        }
+      })();
+    }
+
+    check();
+
+    // When a page is restored from the back/forward cache (bfcache), the
+    // component tree is reused as-is and this effect does NOT re-run, so a
+    // stale session could otherwise keep rendering a previously-authed
+    // admin page without re-checking auth. `pageshow` fires on every
+    // navigation, including bfcache restores, and `event.persisted` is
+    // true only for the latter — re-run the auth check in that case.
+    function onPageShow(event: PageTransitionEvent) {
+      if (event.persisted) {
+        setResolved(false);
+        check();
       }
-      const body = await res.json();
-      setData(select ? select(body) : (body as T));
-      setResolved(true);
-    })();
+    }
+    window.addEventListener("pageshow", onPageShow);
+
     return () => {
       cancelled = true;
+      window.removeEventListener("pageshow", onPageShow);
     };
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [skip, meEndpoint, loginPath]);
 
   return { resolved, data };
+}
+
+// Single shared timestamp formatter for admin pages. The backend stores
+// timestamps in UTC, so every admin-visible timestamp is pinned to UTC
+// explicitly (rather than implicitly using the viewer's browser-local zone)
+// and labelled with a visible "UTC" suffix so it's unambiguous without
+// relying on the viewer's own clock. Returns "—" for missing values.
+export function formatTimestamp(iso: string | null): string {
+  if (!iso) return "—";
+  const date = new Date(iso);
+  if (Number.isNaN(date.getTime())) return "—";
+  return `${date.toLocaleString(undefined, { timeZone: "UTC" })} UTC`;
 }

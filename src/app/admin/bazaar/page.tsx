@@ -1,7 +1,9 @@
 "use client";
+import LoadingSpinner from "@/components/LoadingSpinner";
 
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { apiFetch, apiPatch } from "@/lib/api";
+import { formatUtcTimestamp } from "@/lib/format";
 
 type ListingStatus = "pending" | "approved" | "rejected";
 
@@ -22,33 +24,75 @@ interface Listing {
 const STATUS_OPTIONS: ListingStatus[] = ["pending", "approved", "rejected"];
 
 function formatDate(iso: string | null): string {
-  return iso ? new Date(iso).toLocaleString() : "—";
+  return iso ? formatUtcTimestamp(iso) : "—";
 }
 
 export default function AdminBazaarPage() {
   const [listings, setListings] = useState<Listing[]>([]);
-  const [filter, setFilter] = useState<"" | ListingStatus>("pending");
+  const [filter, setFilter] = useState<"" | ListingStatus>(() => {
+    if (typeof window === "undefined") return "pending";
+    return (sessionStorage.getItem("admin-bazaar-filter") as "" | ListingStatus) ?? "pending";
+  });
   const [loading, setLoading] = useState(true);
+  const [refreshing, setRefreshing] = useState(false);
   const [pendingId, setPendingId] = useState<string | null>(null);
+  const [error, setError] = useState<string | null>(null);
+  // Monotonically increasing id for each load() call. Used to discard a
+  // response that resolves after a newer request has already been issued,
+  // so a slow in-flight request can never clobber the result of a faster,
+  // more recent one.
+  const requestIdRef = useRef(0);
 
-  async function load(status: string) {
-    setLoading(true);
+  async function load(status: string, opts?: { refresh?: boolean }) {
+    const requestId = ++requestIdRef.current;
+    // Only the true initial load toggles `loading` (which unmounts the table
+    // and resets scroll). Row-action refetches use `refreshing` so the
+    // `.admin-table-wrap` scroll container stays mounted and keeps scrollTop.
+    if (opts?.refresh) {
+      setRefreshing(true);
+    } else {
+      setLoading(true);
+    }
+    setError(null);
     const result = await apiFetch<Listing[]>(status ? `/admin/bazaar-listings?status=${status}` : "/admin/bazaar-listings");
-    if (result.ok) setListings(result.data);
+    if (requestId !== requestIdRef.current) {
+      // A newer load() has been issued since this one started; drop this
+      // stale response instead of overwriting fresher data.
+      return;
+    }
+    if (result.ok && result.data) {
+      setListings(result.data);
+    } else {
+      setListings([]);
+      setError(result.ok ? "Could not load listings — try again." : result.message || "Could not load listings — try again.");
+    }
     setLoading(false);
+    setRefreshing(false);
   }
 
   useEffect(() => {
+    sessionStorage.setItem("admin-bazaar-filter", filter);
     (async () => {
       await load(filter);
     })();
   }, [filter]);
 
   async function handleReview(listing: Listing, status: "approved" | "rejected") {
+    if (status === "approved") {
+      const confirmed = window.confirm(
+        `Approve "${listing.name || listing.url}"? This publishes the listing to the public discovery manifest (/.well-known/x402-bazaar.json), making it visible to other agents.`
+      );
+      if (!confirmed) return;
+    }
     setPendingId(listing.id);
+    setError(null);
     try {
-      await apiPatch(`/admin/bazaar-listings/${listing.id}/status`, { status });
-      await load(filter);
+      const result = await apiPatch(`/admin/bazaar-listings/${listing.id}/status`, { status });
+      if (!result.ok) {
+        setError(result.message || `Could not ${status === "approved" ? "approve" : "reject"} listing — try again.`);
+        return;
+      }
+      await load(filter, { refresh: true });
     } finally {
       setPendingId(null);
     }
@@ -74,13 +118,17 @@ export default function AdminBazaarPage() {
         ))}
       </div>
 
+      {error && <div className="empty">{error}</div>}
+
       <div className="admin-section">
         {loading ? (
-          <div className="empty">Loading…</div>
+          <LoadingSpinner />
+        ) : error ? (
+          <div className="empty">Could not load listings — try again.</div>
         ) : listings.length === 0 ? (
           <div className="empty">No listings match this filter.</div>
         ) : (
-          <div className="admin-table-wrap">
+          <div className="admin-table-wrap" aria-busy={refreshing}>
             <table className="admin-table">
               <thead>
                 <tr>
@@ -90,7 +138,7 @@ export default function AdminBazaarPage() {
                   <th>Network</th>
                   <th>Contact</th>
                   <th>Status</th>
-                  <th>Submitted</th>
+                  <th>Submitted (UTC)</th>
                   <th></th>
                 </tr>
               </thead>
@@ -113,14 +161,14 @@ export default function AdminBazaarPage() {
                     <td>{formatDate(l.created_at)}</td>
                     <td>
                       {l.status === "pending" && (
-                        <>
+                        <div className="button-group">
                           <button type="button" disabled={pendingId === l.id} onClick={() => handleReview(l, "approved")}>
                             Approve
-                          </button>{" "}
+                          </button>
                           <button type="button" disabled={pendingId === l.id} onClick={() => handleReview(l, "rejected")}>
                             Reject
                           </button>
-                        </>
+                        </div>
                       )}
                     </td>
                   </tr>

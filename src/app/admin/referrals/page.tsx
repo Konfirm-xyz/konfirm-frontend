@@ -1,7 +1,9 @@
 "use client";
+import LoadingSpinner from "@/components/LoadingSpinner";
 
 import { useEffect, useState } from "react";
-import { API_BASE } from "@/lib/api";
+import { apiFetch } from "@/lib/api";
+import { formatUtcTimestamp } from "@/lib/format";
 
 interface ReferralRow {
   id: string;
@@ -18,17 +20,41 @@ function formatDate(iso: string): string {
   return new Date(iso).toLocaleString();
 }
 
+const PAGE_SIZE = 50;
+
 export default function AdminReferralsPage() {
   const [referrals, setReferrals] = useState<ReferralRow[]>([]);
   const [loading, setLoading] = useState(true);
+  const [loadingMore, setLoadingMore] = useState(false);
+  const [offset, setOffset] = useState(0);
+  const [hasMore, setHasMore] = useState(false);
+  const [error, setError] = useState(false);
 
   useEffect(() => {
     (async () => {
-      const res = await fetch(`${API_BASE}/admin/referrals`, { credentials: "include" });
-      if (res.ok) setReferrals(await res.json());
+      const result = await apiFetch<ReferralRow[]>(`/admin/referrals?limit=${PAGE_SIZE}&offset=0`);
+      if (result.ok && result.data) {
+        setReferrals(result.data);
+        setOffset(result.data.length);
+        setHasMore(result.data.length === PAGE_SIZE);
+        setError(false);
+      } else {
+        setError(true);
+      }
       setLoading(false);
     })();
   }, []);
+
+  async function loadMore() {
+    setLoadingMore(true);
+    const result = await apiFetch<ReferralRow[]>(`/admin/referrals?limit=${PAGE_SIZE}&offset=${offset}`);
+    if (result.ok && result.data) {
+      setReferrals((prev) => [...prev, ...result.data!]);
+      setOffset((prev) => prev + result.data!.length);
+      setHasMore(result.data.length === PAGE_SIZE);
+    }
+    setLoadingMore(false);
+  }
 
   return (
     <div>
@@ -39,7 +65,9 @@ export default function AdminReferralsPage() {
       </p>
 
       {loading ? (
-        <div className="empty">Loading…</div>
+        <LoadingSpinner />
+      ) : error ? (
+        <div className="empty">Could not load referrals — try again.</div>
       ) : referrals.length === 0 ? (
         <div className="empty">No referrals yet.</div>
       ) : (
@@ -72,12 +100,21 @@ export default function AdminReferralsPage() {
                         {r.activated ? "Active" : "Signed up"}
                       </span>
                     </td>
-                    <td>{formatDate(r.created_at)}</td>
+                    <td>{formatUtcTimestamp(r.created_at)}</td>
                   </tr>
                 ))}
               </tbody>
             </table>
           </div>
+          <div className="hint" style={{ marginTop: 12 }}>
+            Showing {referrals.length} referral{referrals.length === 1 ? "" : "s"}
+            {hasMore ? " (there may be more)" : ""}
+          </div>
+          {hasMore && (
+            <button className="btn" onClick={loadMore} disabled={loadingMore} style={{ marginTop: 8 }}>
+              {loadingMore ? "Loading…" : "Load more"}
+            </button>
+          )}
         </div>
       )}
     </div>

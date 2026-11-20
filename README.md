@@ -17,6 +17,7 @@ Sibling repos: [konfirm-backend](https://github.com/konfirm-HQ/konfirm-backend) 
 | `/forgot-password` | `src/app/forgot-password/page.tsx` | Requests a password-reset email. Gives the same reply whether or not the account exists |
 | `/reset-password` | `src/app/reset-password/page.tsx` | Sets a new password from the emailed link. Reached only with a `?token=` |
 | `/get-test-usdc` | `src/app/get-test-usdc/page.tsx` | Pulls test USDC from the reference anchor via Freighter, then forwards it to whatever wallet you're actually testing checkout with — not part of the merchant product. Needs the backend's `ENABLE_TESTNET_FAUCET=true`; off in production |
+| `/referrals` | `src/app/referrals/page.tsx` | Merchant referral link, promo-rate status, and a table of referred merchants |
 
 ### Admin
 
@@ -99,3 +100,8 @@ Set `BACKEND_URL` in the Vercel project's environment variables to the deployed 
 ## License
 
 [MIT](LICENSE)
+
+## Handsoff notes
+
+<!-- handsoff-issue-158 -->
+- #158: Remove two dead CSS classes from globals.css: amount-caption, qr-caption

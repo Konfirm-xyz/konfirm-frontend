@@ -3,6 +3,7 @@
 import { Suspense, useState, type FormEvent } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
 import Link from "next/link";
+import PasswordInput from "@/components/PasswordInput";
 import { API_BASE } from "@/lib/api";
 
 function ResetPasswordForm() {
@@ -12,13 +13,16 @@ function ResetPasswordForm() {
   const [confirm, setConfirm] = useState("");
   const [submitting, setSubmitting] = useState(false);
   const [status, setStatus] = useState("");
+  const [mismatch, setMismatch] = useState(false);
 
   async function handleSubmit(e: FormEvent) {
     e.preventDefault();
     if (password !== confirm) {
+      setMismatch(true);
       setStatus("The two passwords don't match.");
       return;
     }
+    setMismatch(false);
     setSubmitting(true);
     setStatus("");
     try {
@@ -54,32 +58,43 @@ function ResetPasswordForm() {
     <form onSubmit={handleSubmit}>
       <div className="field">
         <label htmlFor="password">New password</label>
-        <input
+        <PasswordInput
           id="password"
-          type="password"
           autoComplete="new-password"
           minLength={8}
+          maxLength={72}
           required
           value={password}
           onChange={(e) => setPassword(e.target.value)}
+          aria-invalid={mismatch || Boolean(status)}
+          aria-describedby={status ? "form-status" : undefined}
         />
       </div>
       <div className="field">
         <label htmlFor="confirm">Confirm new password</label>
-        <input
+        <PasswordInput
           id="confirm"
-          type="password"
           autoComplete="new-password"
           minLength={8}
+          maxLength={72}
           required
           value={confirm}
           onChange={(e) => setConfirm(e.target.value)}
+          aria-invalid={mismatch || Boolean(status)}
+          aria-describedby={status ? "form-status" : undefined}
         />
       </div>
       <button type="submit" className="primary" disabled={submitting}>
-        Set new password
+        {submitting ? "Setting password…" : "Set new password"}
       </button>
-      <div className={`status${status ? " error" : ""}`}>{status}</div>
+      <div
+        id="form-status"
+        className={`status${status ? " error" : ""}`}
+        role="alert"
+        aria-live={status ? "assertive" : "polite"}
+      >
+        {status}
+      </div>
     </form>
   );
 }

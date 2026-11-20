@@ -2,7 +2,9 @@
 
 import { useState, type FormEvent } from "react";
 import { useRouter } from "next/navigation";
+import PasswordInput from "@/components/PasswordInput";
 import { API_BASE } from "@/lib/api";
+import { reportError } from "@/lib/report-error";
 
 export default function AdminLoginPage() {
   const router = useRouter();
@@ -28,7 +30,7 @@ export default function AdminLoginPage() {
       }
       router.push("/admin");
     } catch (err) {
-      console.error("[konfirm admin login]", err);
+      reportError("admin-login", err);
       setStatus(err instanceof Error ? err.message : "Could not log in. Please try again.");
       setSubmitting(false);
     }
@@ -47,7 +49,7 @@ export default function AdminLoginPage() {
             <input
               id="email"
               type="email"
-              autoComplete="email"
+              autoComplete="username"
               required
               value={email}
               onChange={(e) => setEmail(e.target.value)}
@@ -55,17 +57,17 @@ export default function AdminLoginPage() {
           </div>
           <div className="field">
             <label htmlFor="password">Password</label>
-            <input
+            <PasswordInput
               id="password"
-              type="password"
               autoComplete="current-password"
+              maxLength={72}
               required
               value={password}
               onChange={(e) => setPassword(e.target.value)}
             />
           </div>
           <button type="submit" className="primary" disabled={submitting}>
-            Log in
+            {submitting ? "Logging in…" : "Log in"}
           </button>
           <div className={`status${status ? " error" : ""}`}>{status}</div>
         </form>
