@@ -105,3 +105,6 @@ Set `BACKEND_URL` in the Vercel project's environment variables to the deployed 
 
 <!-- handsoff-issue-158 -->
 - #158: Remove two dead CSS classes from globals.css: amount-caption, qr-caption
+
+<!-- handsoff-issue-357 -->
+- #357: button.primary and button.secondary (every form's main actions) have no :hover state
