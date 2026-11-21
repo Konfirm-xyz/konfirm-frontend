@@ -39,7 +39,11 @@ export type ApiResult<T> = ApiSuccess<T> | ApiFailure;
 // access on an `ApiResult`.
 export async function apiFetch<T = unknown>(path: string, init: RequestInit = {}): Promise<ApiResult<T>> {
   const { body, headers, credentials, ...rest } = init;
-  const isJsonBody = typeof body === "string" || (body !== undefined && !(body instanceof FormData));
+  // Only a string body is JSON text by the time it reaches here — apiPost/
+  // apiPatch already JSON.stringify before calling apiFetch. Any other body
+  // shape (FormData, Blob, ReadableStream, URLSearchParams, ...) must keep
+  // its own Content-Type rather than being forced to application/json.
+  const isJsonBody = typeof body === "string";
   const res = await fetch(`${API_BASE}${path}`, {
     credentials: credentials ?? "include",
     headers: isJsonBody
