@@ -23,6 +23,13 @@ export interface UseRequireAuthResult<T> {
    * implementation had under a different local variable name. */
   resolved: boolean;
   data: T | null;
+  /** Set when the auth check failed for a reason other than a clean
+   * unauthenticated response (network error, non-JSON body, select()
+   * throwing). Callers can render a retry affordance instead of hanging on
+   * "Loading…" forever. */
+  error: boolean;
+  /** Re-run the auth check. No-op while skipped. */
+  retry: () => void;
 }
 
 // Consolidates the identical auth-check block that was independently
@@ -38,6 +45,8 @@ export function useRequireAuth<T = unknown>(options: UseRequireAuthOptions<T>): 
   const { meEndpoint, loginPath, skip, select } = options;
   const [resolved, setResolved] = useState(Boolean(skip));
   const [data, setData] = useState<T | null>(null);
+  const [error, setError] = useState(false);
+  const [retryToken, setRetryToken] = useState(0);
   const prevSkipRef = useRef(Boolean(skip));
 
   useEffect(() => {
@@ -69,12 +78,17 @@ export function useRequireAuth<T = unknown>(options: UseRequireAuthOptions<T>): 
             return;
           }
           setData(select ? select(body) : (body as T));
+          setError(false);
           setResolved(true);
         } catch {
           // Any other unexpected failure (network error, select() throwing)
           // must still reach a terminal state rather than hanging the gate.
+          // Surface a retryable error instead of redirecting, since the
+          // backend may simply be unreachable rather than the session being
+          // invalid.
           if (cancelled) return;
-          router.push(loginPath);
+          setError(true);
+          setResolved(false);
         }
       })();
     }
@@ -100,9 +114,16 @@ export function useRequireAuth<T = unknown>(options: UseRequireAuthOptions<T>): 
       window.removeEventListener("pageshow", onPageShow);
     };
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [skip, meEndpoint, loginPath]);
+  }, [skip, meEndpoint, loginPath, retryToken]);
 
-  return { resolved, data };
+  function retry() {
+    if (skip) return;
+    setError(false);
+    setResolved(false);
+    setRetryToken((n) => n + 1);
+  }
+
+  return { resolved, data, error, retry };
 }
 
 // Single shared timestamp formatter for admin pages. The backend stores

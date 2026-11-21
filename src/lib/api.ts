@@ -2,7 +2,7 @@
 // next.config.ts — never a direct cross-origin call to the NestJS server.
 export const API_BASE = "/api/backend";
 
-export interface ApiSuccess<T> {
+interface ApiSuccess<T> {
   ok: true;
   status: number;
   // `data` is `T | null` because a 2xx response with an empty or non-JSON
@@ -11,7 +11,7 @@ export interface ApiSuccess<T> {
   data: T | null;
 }
 
-export interface ApiFailure {
+interface ApiFailure {
   ok: false;
   status: number;
   message: string;
@@ -68,10 +68,6 @@ export function apiPost<T = unknown>(path: string, json?: unknown, init: Request
 
 export function apiPatch<T = unknown>(path: string, json?: unknown, init: RequestInit = {}): Promise<ApiResult<T>> {
   return apiFetch<T>(path, { ...init, method: "PATCH", body: json !== undefined ? JSON.stringify(json) : undefined });
-}
-
-export function apiDelete<T = unknown>(path: string, init: RequestInit = {}): Promise<ApiResult<T>> {
-  return apiFetch<T>(path, { ...init, method: "DELETE" });
 }
 
 // Admin list endpoints (merchants, users, wallets, referrals, pay-links,
