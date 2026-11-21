@@ -67,6 +67,7 @@ export default function AdminUsersPage() {
 
   return (
     <div>
+      <title>Users · Konfirm Admin</title>
       <h1>Users</h1>
       <p className="hint">
         There&apos;s no separate user-account system — this is every unique address that has ever paid through the

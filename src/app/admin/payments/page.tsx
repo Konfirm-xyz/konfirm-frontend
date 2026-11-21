@@ -151,6 +151,7 @@ export default function AdminPaymentsPage() {
 
   return (
     <div>
+      <title>Payments · Konfirm Admin</title>
       <h1>Payments</h1>
 
       <div className="admin-inline-form">

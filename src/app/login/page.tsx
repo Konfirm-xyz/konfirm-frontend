@@ -38,6 +38,7 @@ export default function LoginPage() {
 
   return (
     <main className="auth">
+      <title>Log in · Konfirm</title>
       <h1>Log in</h1>
       <form onSubmit={onSubmit} noValidate>
         <div className="field">
