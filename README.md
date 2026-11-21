@@ -80,28 +80,6 @@ Confirmed for real, not just by reading the rewrite config: signed up through `/
 
 ## Design language
 
-Dark by design, not by default — one shared token set (`--ink`, `--surface`, `--accent`, etc.) in `globals.css` rather than the old approach of repeating the same tokens inline on every page. Status copy is written for the person using it: no "session," "reconciler," or "screening" ever reaches a customer-facing screen, and raw errors are filtered through an allowlist (`friendlyMessage()` in each page that needs it) before they're shown — anything not explicitly recognized falls back to a generic message, with the real error going to the console instead.
+Dark by design, 
 
-## CI
-
-`.github/workflows/ci.yml` — install, lint, `next build` (which runs its own full TypeScript check — a standalone `tsc --noEmit` step run first fails on a clean checkout, since App Router's generated route types don't exist until a build has run at least once), `npm audit --audit-level=high`. No database or backend dependency to stand up, since none of these checks make a real network call.
-
-## Deployment
-
-[Vercel](https://vercel.com) — its native Next.js build already matches what CI validates (`next build`), so no Dockerfile or platform-specific config is needed here, unlike `konfirm-backend`.
-
-Set `BACKEND_URL` in the Vercel project's environment variables to the deployed backend's real public URL (see `konfirm-backend`'s README, Deployment section) — without it, the BFF proxy defaults to `http://localhost:4001` and every `/api/backend/*` call fails in production. See `.env.example` for the exact variable.
-
-## Known limitations
-
-- **Testnet only** — same as the backend; nothing here changes for mainnet beyond whatever `BACKEND_URL` points at in production.
-- **No E2E browser tests yet.** Every page has been typechecked, linted, built, and curl-verified against the live backend through the proxy, but nothing here drives an actual browser — Freighter's signature prompt and the anchor's interactive popup are both real UI a script can't click through headlessly. Those stay manually tested, same limitation the backend's own README calls out for its test suite.
-
-## License
-
-[MIT](LICENSE)
-
-## Handsoff notes
-
-<!-- handsoff-issue-158 -->
-- #158: Remove two dead CSS classes from globals.css: amount-caption, qr-caption
+/* … truncated 2193 chars — edit only what you need near the top … */
