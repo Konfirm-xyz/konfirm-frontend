@@ -159,28 +159,28 @@ export default function AdminOverviewPage() {
         <div className="stat-grid">
           <div className="stat-card">
             <div className="stat-label">Merchants</div>
-            <div className="stat-value">{stats.merchants.total}</div>
+            <div className="stat-value">{stats.merchants.total.toLocaleString()}</div>
           </div>
           <div className="stat-card">
             <div className="stat-label">Active</div>
-            <div className="stat-value stat-good">{stats.merchants.active}</div>
+            <div className="stat-value stat-good">{stats.merchants.active.toLocaleString()}</div>
           </div>
           <div className="stat-card">
             <div className="stat-label">Suspended</div>
-            <div className="stat-value stat-bad">{stats.merchants.suspended}</div>
+            <div className="stat-value stat-bad">{stats.merchants.suspended.toLocaleString()}</div>
           </div>
           <div className="stat-card">
             <div className="stat-label">Payments today</div>
-            <div className="stat-value">{stats.payments.today_count}</div>
+            <div className="stat-value">{stats.payments.today_count.toLocaleString()}</div>
             <div className="stat-sub">{formatAmount(stats.payments.today_net_usdc, "USDC")} net</div>
           </div>
           <div className="stat-card">
             <div className="stat-label">Blocked addresses</div>
-            <div className="stat-value">{stats.compliance.blocked_count}</div>
+            <div className="stat-value">{stats.compliance.blocked_count.toLocaleString()}</div>
           </div>
           <div className="stat-card">
             <div className="stat-label">Open cash-outs</div>
-            <div className="stat-value">{stats.withdrawals.open_count}</div>
+            <div className="stat-value">{stats.withdrawals.open_count.toLocaleString()}</div>
             <div className="stat-sub">not yet completed/errored per the anchor</div>
           </div>
           <div className="stat-card">

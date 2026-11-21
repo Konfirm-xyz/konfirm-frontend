@@ -50,4 +50,11 @@ export type Currency = "XLM" | "USDC" | "EURC";
  */
 export const CURRENCY_DECIMALS: Record<Currency, number> = { XLM: 7, USDC: 2, EURC: 2 };
 
+/** Placeholder hint for an amount input, e.g. "0.00" for USDC/EURC and
+ *  "0.0000000" for XLM, so it reflects the currency's real precision (#351).
+ */
+export function amountPlaceholder(currency: Currency): string {
+  return "0." + "0".repeat(CURRENCY_DECIMALS[currency]);
+}
+
 export const CURRENCY_SYMBOLS: Record<Currency, string> = { XLM: "", USDC: "$", EURC: "€" };

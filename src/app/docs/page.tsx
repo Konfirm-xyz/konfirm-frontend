@@ -119,6 +119,17 @@ export default function DocsPage() {
       </section>
 
       <section style={{ marginTop: "2rem" }}>
+        <h2>Supported assets</h2>
+        <p>
+          Payment links created at <code>/new</code> can be denominated in XLM, USDC, or EURC, so merchants can accept
+          EURC payments. Cash-out via <code>/cashout</code> currently supports only XLM and USDC — EURC cash-out is not
+          yet available because the testnet cash-out partner does not support EURC. If you have accepted EURC and need
+          to convert it, hold the balance and cash out once EURC support ships, or contact{" "}
+          <a href="mailto:support@konfirm.xyz">support@konfirm.xyz</a> to arrange a manual conversion.
+        </p>
+      </section>
+
+      <section style={{ marginTop: "2rem" }}>
         <h2>Referrals</h2>
         <p>
           Every merchant account includes a referral code, generated automatically at signup. Referred merchants are
