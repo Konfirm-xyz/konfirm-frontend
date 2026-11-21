@@ -44,6 +44,10 @@ function shortAddress(address: string): string {
   return `${address.slice(0, 4)}…${address.slice(-4)}`;
 }
 
+function shortHash(hash: string): string {
+  return `${hash.slice(0, 8)}…${hash.slice(-6)}`;
+}
+
 const PAGE_SIZE = 50;
 
 export default function AdminPaymentsPage() {
@@ -192,6 +196,7 @@ export default function AdminPaymentsPage() {
                   <th scope="col">Merchant</th>
                   <th scope="col">Amount</th>
                   <th scope="col">Payer</th>
+                  <th scope="col">Tx hash</th>
                   <th scope="col">Status</th>
                   <th scope="col">Created</th>
                   <th scope="col"><span className="sr-only">Actions</span></th>
@@ -206,6 +211,20 @@ export default function AdminPaymentsPage() {
                     </td>
                     <td className="mono">{formatAmount(p.amount_usdc, p.asset_code)}</td>
                     <td className="mono" title={p.payer_address}>{shortAddress(p.payer_address)}</td>
+                    <td className="mono">
+                      {p.tx_hash ? (
+                        <a
+                          href={`https://stellar.expert/explorer/public/tx/${encodeURIComponent(p.tx_hash)}`}
+                          target="_blank"
+                          rel="noopener noreferrer"
+                          title={p.tx_hash}
+                        >
+                          {shortHash(p.tx_hash)}
+                        </a>
+                      ) : (
+                        <span style={{ color: "var(--text-lo)" }}>—</span>
+                      )}
+                    </td>
                     <td>
                       <span className={`status-pill ${p.status}`}>{p.status}</span>
                       {p.flag_reason && (
@@ -217,25 +236,4 @@ export default function AdminPaymentsPage() {
                     <td>{formatDate(p.created_at)}</td>
                     <td>
                       <select
-                        aria-label="Payment status"
-                        value={p.status}
-                        disabled={pendingId === p.id}
-                        onChange={(e) => changeStatus(p, e.target.value as PaymentStatus)}
-                      >
-                        {STATUS_OPTIONS.map((s) => (
-                          <option key={s} value={s}>
-                            {s}
-                          </option>
-                        ))}
-                      </select>
-                    </td>
-                  </tr>
-                ))}
-              </tbody>
-            </table>
-          </div>
-        )}
-      </div>
-    </div>
-  );
-}
+                        aria-label="Payment st
