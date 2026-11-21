@@ -119,7 +119,7 @@ export default function AdminNotificationsPage() {
               {items.map((n) => (
                 <li key={`${n.type}-${n.id}`}>
                   <span className="when">{formatUtcTimestamp(n.created_at)}</span>
-                  <span className={`status-pill ${n.severity === "critical" ? "failed" : n.severity === "warning" ? "held" : "active"}`}>
+                  <span className={`status-pill ${severityPillClass(n.severity)}`}>
                     {n.severity}
                   </span>{" "}
                   {n.message}
