@@ -87,6 +87,8 @@ export default function DocsPage() {
               ["fee_status", '"none" | "collected" | "owed" | "claimed" | "settled"', "Platform fee lifecycle"],
               ["fee_owed_raw", "decimal | null", "Platform fee amount if owed"],
               ["fee_asset_code", "string | null", "Asset in which the fee is owed"],
+              ["created_at", "ISO 8601", "Creation timestamp (UTC)"],
+              ["flag_reason", "string | null", "Reason the payment is held, if applicable"],
             ].map(([field, type, desc]) => (
               <tr key={field as string} style={{ borderBottom: "1px solid var(--border, #e5e7eb)" }}>
                 <td style={{ padding: "0.5rem 0.75rem" }}>
