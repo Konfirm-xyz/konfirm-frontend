@@ -80,7 +80,7 @@ Confirmed for real, not just by reading the rewrite config: signed up through `/
 
 ## Design language
 
-Dark by design, not by default — one shared token set (`--ink`, `--surface`, `--accent`, etc.) in `globals.css` rather than the old approach of repeating the same tokens inline on every page. Status copy is written for the person using it: no "session," "reconciler," or "screening" ever reaches a customer-facing screen, and raw errors are filtered through an allowlist (`friendlyMessage()` in each page that needs it) before they're shown — anything not explicitly recognized falls back to a generic message, with the real error going to the console instead.
+Dark by design, 
 
 ## CI
 
