@@ -5,7 +5,7 @@
 ### Prerequisites
 
 - Node.js 18+
-- A running instance of [konfirm-backend](https://github.com/konfirm-HQ/konfirm-backend) (local or deployed)
+- A running instance of [konfirm-backend](https://github.com/Konfirm-xyz/konfirm-backend) (local or deployed)
 
 ### Install and run
 
