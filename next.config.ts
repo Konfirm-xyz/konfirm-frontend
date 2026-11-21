@@ -34,6 +34,9 @@ const securityHeaders = [
 ];
 
 const nextConfig: NextConfig = {
+  // Don't advertise the framework via `X-Powered-By: Next.js` on every
+  // response — a free fingerprinting signal for attackers.
+  poweredByHeader: false,
   async headers() {
     return [
       {

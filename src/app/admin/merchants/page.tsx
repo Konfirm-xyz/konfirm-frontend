@@ -172,7 +172,7 @@ export default function AdminMerchantsPage() {
 
   return (
     <div>
-      <h1>Merchants</h1>
+      <h1 id="merchants-heading">Merchants</h1>
 
       <div className="admin-inline-form">
         <div className="field">
@@ -196,7 +196,7 @@ export default function AdminMerchantsPage() {
           <div className="empty">{merchants.length === 0 ? "No merchants yet." : "No merchants match this search."}</div>
         ) : (
           <div className="admin-table-wrap">
-            <table className="admin-table">
+            <table className="admin-table" aria-labelledby="merchants-heading">
               <thead>
                 <tr>
                   <th scope="col">Merchant</th>

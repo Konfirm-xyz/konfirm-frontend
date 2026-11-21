@@ -1,4 +1,4 @@
-import type { Metadata } from "next";
+import type { Metadata, Viewport } from "next";
 import "./globals.css";
 import RouteAnnouncer from "./RouteAnnouncer";
 import ThemeToggle from "./ThemeToggle";
@@ -22,6 +22,12 @@ export const metadata: Metadata = {
     default: "Konfirm",
   },
   description: "A non-custodial payment processor on Stellar.",
+};
+
+// Matches --ink in globals.css so mobile browser chrome blends with the
+// app's dark surface instead of defaulting to light.
+export const viewport: Viewport = {
+  themeColor: "#0a0908",
 };
 
 export default function RootLayout({ children }: LayoutProps<"/">) {
