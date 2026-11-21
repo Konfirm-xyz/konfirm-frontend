@@ -148,12 +148,34 @@ export default function NewPaymentPage() {
   }
 
   async function handleCopy() {
-    if (!navigator.clipboard?.writeText) {
-      setStatus("Couldn't copy — select and copy the link manually.");
-      return;
+    if (navigator.clipboard?.writeText) {
+      try {
+        await navigator.clipboard.writeText(linkUrl);
+        setStatus("");
+        setCopyLabel("Copied");
+        setCopyAnnouncement("Link copied to clipboard.");
+        setTimeout(() => {
+          setCopyLabel("Copy");
+          setCopyAnnouncement("");
+        }, COPY_FEEDBACK_MS);
+        return;
+      } catch (err) {
+        console.error("[konfirm new-payment] clipboard", err);
+      }
     }
+
+    // Fallback for browsers/contexts without the async Clipboard API.
     try {
-      await navigator.clipboard.writeText(linkUrl);
+      const textarea = document.createElement("textarea");
+      textarea.value = linkUrl;
+      textarea.setAttribute("readonly", "");
+      textarea.style.position = "fixed";
+      textarea.style.opacity = "0";
+      document.body.appendChild(textarea);
+      textarea.select();
+      const ok = document.execCommand("copy");
+      document.body.removeChild(textarea);
+      if (!ok) throw new Error("execCommand copy failed");
       setStatus("");
       setCopyLabel("Copied");
       setCopyAnnouncement("Link copied to clipboard.");
@@ -162,7 +184,7 @@ export default function NewPaymentPage() {
         setCopyAnnouncement("");
       }, COPY_FEEDBACK_MS);
     } catch (err) {
-      console.error("[konfirm new-payment] clipboard", err);
+      console.error("[konfirm new-payment] clipboard fallback", err);
       setStatus("Couldn't copy — select and copy the link manually.");
     }
   }
@@ -246,7 +268,7 @@ export default function NewPaymentPage() {
               />
             </div>
 
-            <button type="submit" className="primary" disabled={submitting}>
+            <button className="btn" type="submit" disabled={submitting}>
               {submitting ? "Creating…" : "Create payment link"}
             </button>
             {status && (
@@ -258,10 +280,10 @@ export default function NewPaymentPage() {
         ) : (
           <div>
             <h1>Link ready</h1>
-            <p className="sub">Share this link with whoever&apos;s paying.</p>
+            <p className="sub">Share this link to get paid.</p>
             <div className="link-box">
               <input type="text" readOnly value={linkUrl} onFocus={(e) => e.target.select()} aria-label="Payment link" />
-              <button type="button" className="copy" onClick={handleCopy}>
+              <button className="btn" type="button" onClick={handleCopy}>
                 {copyLabel}
               </button>
             </div>
@@ -285,6 +307,9 @@ export default function NewPaymentPage() {
                 {status}
               </p>
             )}
+            <button className="btn secondary" type="button" onClick={handleAnother}>
+              Create another
+            </button>
           </div>
         )}
       </div>
