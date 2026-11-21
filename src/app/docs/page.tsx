@@ -21,8 +21,8 @@ export default function DocsPage() {
         <h2>Overview</h2>
         <p>
           Konfirm is a Stellar-based payment confirmation layer. When a payer sends stablecoins (USDC by default) to
-          your Stellar address, Konfirm watches the ledger and confirms the payment on-chain in real time — no polling,
-          no webhooks to configure, no off-chain settlement risk.
+          your Stellar address, Konfirm watches the ledger and confirms the payment on-chain — no webhooks to
+          configure, no off-chain settlement risk.
         </p>
       </section>
 
