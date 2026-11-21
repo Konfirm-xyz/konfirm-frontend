@@ -108,11 +108,22 @@ export default function AdminBazaarPage() {
       </p>
 
       <div className="filter-pills">
-        <button type="button" className={`filter-pill ${filter === "" ? "active" : ""}`} onClick={() => setFilter("")}>
+        <button
+          type="button"
+          className={`filter-pill ${filter === "" ? "active" : ""}`}
+          aria-pressed={filter === ""}
+          onClick={() => setFilter("")}
+        >
           All
         </button>
         {STATUS_OPTIONS.map((s) => (
-          <button key={s} type="button" className={`filter-pill ${filter === s ? "active" : ""}`} onClick={() => setFilter(s)}>
+          <button
+            key={s}
+            type="button"
+            className={`filter-pill ${filter === s ? "active" : ""}`}
+            aria-pressed={filter === s}
+            onClick={() => setFilter(s)}
+          >
             {s}
           </button>
         ))}

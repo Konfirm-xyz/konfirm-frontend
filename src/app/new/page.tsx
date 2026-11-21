@@ -282,7 +282,7 @@ export default function NewPaymentPage() {
             <h1>Link ready</h1>
             <p className="sub">Share this link to get paid.</p>
             <div className="link-box">
-              <input type="text" readOnly value={linkUrl} onFocus={(e) => e.target.select()} />
+              <input type="text" readOnly value={linkUrl} onFocus={(e) => e.target.select()} aria-label="Payment link" />
               <button className="btn" type="button" onClick={handleCopy}>
                 {copyLabel}
               </button>
@@ -290,6 +290,18 @@ export default function NewPaymentPage() {
             <p className="visually-hidden" role="status" aria-live="polite">
               {copyAnnouncement}
             </p>
+            <div className="actions">
+              <button
+                type="button"
+                className="primary"
+                onClick={() => window.open(linkUrl, "_blank", "noopener,noreferrer")}
+              >
+                Open checkout
+              </button>
+              <button type="button" className="secondary" onClick={handleAnother}>
+                Create another
+              </button>
+            </div>
             {status && (
               <p className="status" role="alert">
                 {status}
