@@ -95,8 +95,33 @@ export default function ReferralsPage() {
   async function copyLink() {
     if (!referralUrl) return;
     if (!navigator.clipboard?.writeText) {
-      setCopied(false);
-      setCopyError(true);
+      // Fallback for browsers/contexts without the async Clipboard API.
+      const textarea = document.createElement("textarea");
+      textarea.value = referralUrl;
+      textarea.style.position = "fixed";
+      textarea.style.opacity = "0";
+      document.body.appendChild(textarea);
+      textarea.select();
+      try {
+        const ok = document.execCommand("copy");
+        if (ok) {
+          setCopyError(false);
+          setCopied(true);
+          setCopyAnnouncement("Referral link copied to clipboard.");
+          setTimeout(() => {
+            setCopied(false);
+            setCopyAnnouncement("");
+          }, COPY_FEEDBACK_MS);
+        } else {
+          setCopied(false);
+          setCopyError(true);
+        }
+      } catch {
+        setCopied(false);
+        setCopyError(true);
+      } finally {
+        document.body.removeChild(textarea);
+      }
       return;
     }
     try {
