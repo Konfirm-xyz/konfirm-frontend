@@ -1,7 +1,14 @@
 {
-  "name": "frontend",
+  "name": "konfirm-frontend",
   "version": "0.1.0",
   "private": true,
+  "description": "Konfirm frontend — a Stellar payment app built with Next.js.",
+  "browserslist": [
+    ">0.5%",
+    "last 2 versions",
+    "not dead",
+    "not op_mini all"
+  ],
   "scripts": {
     "dev": "next dev",
     "build": "next build",
@@ -17,11 +24,20 @@
     "react-dom": "^19.0.0"
   },
   "devDependencies": {
-    "@types/node": "^20.0.0",
-    "@types/react": "^19.0.0",
-    "@types/react-dom": "^19.0.0",
-    "eslint": "^9.0.0",
-    "eslint-config-next": "^16.0.0",
-    "typescript": "^5.0.0"
+    "@playwright/test": "^1.45.0",
+    "@testing-library/jest-dom": "^6.4.6",
+    "@testing-library/react": "^16.0.0",
+    "@testing-library/user-event": "^14.5.2",
+    "@types/node": "^20",
+    "@types/react": "^19",
+    "@types/react-dom": "^19",
+    "eslint": "^9",
+    "eslint-config-next": "16.3.8",
+    "typescript": "^5",
+    "vitest": "^2.1.9"
+  },
+  "overrides": {
+    "source-map-js": "^1.2.1",
+    "zod": "^3.24.1"
   }
 }

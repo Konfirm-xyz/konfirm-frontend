@@ -101,6 +101,8 @@ function SignupForm() {
               maxLength={120}
               value={name}
               onChange={(e) => setName(e.target.value)}
+              aria-invalid={Boolean(status)}
+              aria-describedby={status ? "form-status" : undefined}
             />
           </div>
           <div className="field">
@@ -112,6 +114,8 @@ function SignupForm() {
               required
               value={email}
               onChange={(e) => setEmail(e.target.value)}
+              aria-invalid={Boolean(status)}
+              aria-describedby={status ? "form-status" : undefined}
             />
           </div>
           <div className="field">
@@ -124,6 +128,8 @@ function SignupForm() {
               required
               value={password}
               onChange={(e) => setPassword(e.target.value)}
+              aria-invalid={Boolean(status)}
+              aria-describedby={status ? "form-status" : undefined}
             />
             <div className="hint">At least 8 characters (72 max).</div>
           </div>
@@ -137,6 +143,8 @@ function SignupForm() {
               required
               value={address}
               onChange={(e) => setAddress(e.target.value)}
+              aria-invalid={Boolean(status)}
+              aria-describedby={status ? "form-status" : undefined}
             />
             <div className="hint">This is where your payments land — Konfirm never holds your funds.</div>
           </div>
@@ -144,6 +152,7 @@ function SignupForm() {
             {submitting ? "Creating account…" : "Create account"}
           </button>
           <div
+            id="form-status"
             className={`status${status ? " error" : ""}`}
             role="alert"
             aria-live={status ? "assertive" : "polite"}

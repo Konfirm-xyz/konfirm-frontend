@@ -26,6 +26,11 @@ export default function CheckoutClient({
     if (initialLinkData) return;
 
     let cancelled = false;
+    // Persisted so a page refresh resumes polling the same session instead
+    // of reserving a new, unrelated one — losing track of a payment that
+    // may already be in flight (scanned, signed, or even submitted) against
+    // the old muxed_id.
+    const storageKey = `konfirm:muxed_id:${linkId}`;
 
     async function fetchLink() {
       const { data, error: fetchError } = await supabase
@@ -42,6 +47,32 @@ export default function CheckoutClient({
         setLinkData(data as PaymentLink);
       }
       setLoading(false);
+      const data: LinkData = await res.json();
+      setLinkData(data);
+      try {
+        const existing = sessionStorage.getItem(storageKey);
+        if (existing) {
+          sharedMuxedId.current = existing;
+        } else {
+          sharedMuxedId.current = await reserveSessionWithRetry();
+          sessionStorage.setItem(storageKey, sharedMuxedId.current);
+        }
+      } catch (err) {
+        console.error("[konfirm checkout] could not reserve a payment session", err);
+        setStatusMsg(friendlyMessage(err), true);
+        setShowQr(false);
+        return;
+      }
+      // QR and mobile wallets pay the link amount. A platform fee on this
+      // link is owed by the merchant and settled from their dashboard
+      // (docs/design/qr-fee-collection.md, Option B), so it isn't added here.
+      await setupQrPayment(sharedMuxedId.current);
+      // Long, silent watch — up to 10 minutes — for the QR/mobile-wallet
+      // path, which has no "just submitted" moment to bound the wait
+      // against.
+      pollForConfirmation(linkId, sharedMuxedId.current, 300, 2000).then((result) => {
+        if (result) showSuccess(result);
+      });
     }
 
     fetchLink();

@@ -51,6 +51,7 @@ export default function AdminPaymentsPage() {
   const [filter, setFilter] = useState<"" | PaymentStatus>("");
   const [search, setSearch] = useState("");
   const [loading, setLoading] = useState(true);
+  const [refreshing, setRefreshing] = useState(false);
   const [loadingMore, setLoadingMore] = useState(false);
   const [pendingId, setPendingId] = useState<string | null>(null);
   const [error, setError] = useState("");
@@ -76,6 +77,13 @@ export default function AdminPaymentsPage() {
     setLoading(true);
     setPayments(await fetchPage(status, 0));
     setLoading(false);
+  }
+
+  // Refetch without unmounting the table so the scroll position is preserved.
+  async function refresh(status: string) {
+    setRefreshing(true);
+    setPayments(await fetchPage(status, 0));
+    setRefreshing(false);
   }
 
   async function loadMore() {
@@ -122,7 +130,7 @@ export default function AdminPaymentsPage() {
     setError("");
     const result = await apiPatch(`/admin/payments/${payment.id}/status`, { status, reason: reason.trim() });
     if (result.ok) {
-      await load(filter);
+      await refresh(filter);
     } else {
       reportError("admin-payments.payment-status-change", { paymentId: payment.id, message: result.message });
       setError(result.message || "Could not update this payment.");
@@ -178,16 +186,16 @@ export default function AdminPaymentsPage() {
         ) : visible.length === 0 ? (
           <div className="empty">No payments match this filter.</div>
         ) : (
-          <div className="admin-table-wrap">
+          <div className="admin-table-wrap" aria-busy={refreshing}>
             <table className="admin-table">
               <thead>
                 <tr>
-                  <th>Merchant</th>
-                  <th>Amount</th>
-                  <th>Payer</th>
-                  <th>Status</th>
-                  <th>Created</th>
-                  <th></th>
+                  <th scope="col">Merchant</th>
+                  <th scope="col">Amount</th>
+                  <th scope="col">Payer</th>
+                  <th scope="col">Status</th>
+                  <th scope="col">Created</th>
+                  <th scope="col"><span className="sr-only">Actions</span></th>
                 </tr>
               </thead>
               <tbody>
