@@ -114,7 +114,7 @@ export default function AdminLayout({ children }: { children: React.ReactNode })
           </button>
         </div>
       </aside>
-      <main className="admin-main">{children}</main>
+      <div className="admin-main">{children}</div>
       {sidebarOpen && (
         <button
           type="button"
