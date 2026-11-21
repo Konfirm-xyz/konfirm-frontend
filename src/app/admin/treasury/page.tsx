@@ -135,6 +135,12 @@ export default function AdminTreasuryPage() {
       setMessage({ text: "Select which signer you're acting as first.", error: true });
       return;
     }
+    if (
+      !window.confirm(
+        `Propose a settlement of ${amount} USDC to ${merchantAddress} as signer ${actingAs}?\n\nThis only creates a pending proposal. No funds move until enough signers approve and it is executed.`,
+      )
+    )
+      return;
     setProposing(true);
     setMessage(null);
     try {
@@ -167,6 +173,12 @@ export default function AdminTreasuryPage() {
       setMessage({ text: "Select which signer you're acting as first.", error: true });
       return;
     }
+    if (
+      !window.confirm(
+        `Approve settlement #${row.onchain_settlement_id} (${formatUsdc(row.amount)} USDC to ${row.merchant_address}) as signer ${actingAs}?`,
+      )
+    )
+      return;
     setBusyAction(`${row.onchain_settlement_id}-approve`);
     setMessage(null);
     try {
@@ -195,6 +207,12 @@ export default function AdminTreasuryPage() {
       setMessage({ text: "Select which signer you're acting as first.", error: true });
       return;
     }
+    if (
+      !window.confirm(
+        `Execute settlement #${row.onchain_settlement_id}? This sends ${formatUsdc(row.amount)} USDC from the treasury to ${row.merchant_address} on-chain and cannot be reversed.`,
+      )
+    )
+      return;
     setBusyAction(`${row.onchain_settlement_id}-execute`);
     setMessage(null);
     try {
