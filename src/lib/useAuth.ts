@@ -13,7 +13,8 @@ export interface UseRequireAuthOptions<T> {
   skip?: boolean;
   /** Pull the caller's shape out of the /me response body, e.g.
    * `(body) => body.admin` or `(body) => body.merchant`. Defaults to the
-   * raw body. */
+   * raw body. May be passed inline and change between renders — the hook
+   * always invokes the latest version (see selectRef below). */
   select?: (body: unknown) => T;
 }
 
@@ -39,6 +40,16 @@ export function useRequireAuth<T = unknown>(options: UseRequireAuthOptions<T>): 
   const [resolved, setResolved] = useState(Boolean(skip));
   const [data, setData] = useState<T | null>(null);
   const prevSkipRef = useRef(Boolean(skip));
+
+  // Callers pass `select` as a fresh inline arrow on every render, so it is
+  // intentionally excluded from the effect's dependency array (re-running the
+  // auth check on every render would be wasteful). Reading it through a ref
+  // updated each render means the effect always invokes the latest `select`
+  // rather than the one captured when skip/meEndpoint/loginPath last changed
+  // — no stale-closure risk if a caller's extraction logic legitimately
+  // changes between renders (#361).
+  const selectRef = useRef(select);
+  selectRef.current = select;
 
   useEffect(() => {
     // Reset resolved when skip transitions from true to false so the auth
@@ -68,7 +79,8 @@ export function useRequireAuth<T = unknown>(options: UseRequireAuthOptions<T>): 
             router.push(loginPath);
             return;
           }
-          setData(select ? select(body) : (body as T));
+          const currentSelect = selectRef.current;
+          setData(currentSelect ? currentSelect(body) : (body as T));
           setResolved(true);
         } catch {
           // Any other unexpected failure (network error, select() throwing)
@@ -99,6 +111,8 @@ export function useRequireAuth<T = unknown>(options: UseRequireAuthOptions<T>): 
       cancelled = true;
       window.removeEventListener("pageshow", onPageShow);
     };
+    // `select` is read via selectRef so it need not be a dependency; the
+    // effect only re-runs when the endpoint/login/skip actually change.
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [skip, meEndpoint, loginPath]);
 
