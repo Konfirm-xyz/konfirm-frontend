@@ -2,6 +2,7 @@ import type { Metadata } from "next";
 import "./globals.css";
 import RouteAnnouncer from "./RouteAnnouncer";
 import ThemeToggle from "./ThemeToggle";
+import SessionExpiryListener from "@/components/session-expiry-listener";
 
 // Runs before paint so an explicit saved preference applies immediately --
 // without this, the page would render in the system-preference theme for
@@ -32,6 +33,7 @@ export default function RootLayout({ children }: LayoutProps<"/">) {
       </head>
       <body>
         <RouteAnnouncer />
+        <SessionExpiryListener />
         <main>{children}</main>
         <ThemeToggle />
       </body>

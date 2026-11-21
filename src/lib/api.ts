@@ -1,5 +1,14 @@
 // Every backend call goes through the same-origin proxy configured in
 // next.config.ts — never a direct cross-origin call to the NestJS server.
+//
+// COOKIE-FIDELITY NOTE (see next.config.ts): the proxy's ability to forward
+// multiple `Set-Cookie` headers (and comma-containing attributes like
+// `Expires`) unmangled is a property of Next's current external-rewrite
+// implementation (raw Node HTTP-level proxying), NOT a documented Next.js
+// contract. If the proxy is ever migrated to a Route Handler / `fetch()`-based
+// pattern, that path coalesces `Set-Cookie` via the Fetch `Headers`
+// abstraction and requires an explicit `splitCookiesString()` workaround.
+// The regression check for this lives in `src/lib/api.cookie-fidelity.test.ts`.
 export const API_BASE = "/api/backend";
 
 export interface ApiSuccess<T> {
@@ -19,6 +28,42 @@ export interface ApiFailure {
 }
 
 export type ApiResult<T> = ApiSuccess<T> | ApiFailure;
+
+// Centralized session-expiry signalling. A 401 from any `apiFetch` call means
+// the session cookie is gone/expired mid-session. Rather than have ~70 call
+// sites each reinvent a redirect (and lose form state / show a misleading
+// generic error), `apiFetch` dispatches a single app-wide event that a
+// root-level listener turns into a "session expired" banner + redirect to
+// `/login` (preserving a return path). Callers can still inspect
+// `result.status === 401` for local handling, but the global signal is the
+// source of truth for surfacing the message.
+export const SESSION_EXPIRED_EVENT = "handsoff:session-expired";
+
+export interface SessionExpiredDetail {
+  // The path that triggered the 401, so the listener can build a return path.
+  path: string;
+}
+
+// Consistent copy used everywhere a session expiry is surfaced.
+export const SESSION_EXPIRED_MESSAGE = "Your session has expired — please log in again.";
+
+// Shared helper so per-call-site write-path catches can special-case an
+// expired session with consistent copy instead of a generic failure string.
+export function isSessionExpired(result: { status?: number } | null | undefined): boolean {
+  return !!result && result.status === 401;
+}
+
+function notifySessionExpired(path: string): void {
+  if (typeof window === "undefined") return;
+  try {
+    window.dispatchEvent(
+      new CustomEvent<SessionExpiredDetail>(SESSION_EXPIRED_EVENT, { detail: { path } }),
+    );
+  } catch {
+    // CustomEvent unavailable (very old env) — fall back to a plain event.
+    window.dispatchEvent(new Event(SESSION_EXPIRED_EVENT));
+  }
+}
 
 // Thin, typed wrapper around the hand-rolled `fetch(`${API_BASE}...`,
 // {credentials:'include'})` + `res.json()` + `!res.ok` pattern that used to
@@ -54,6 +99,13 @@ export async function apiFetch<T = unknown>(path: string, init: RequestInit = {}
   });
   const parsed = await res.json().catch(() => null);
   if (!res.ok) {
+    // A 401 means the session expired mid-session. Surface it explicitly via
+    // the app-wide event (root listener shows the banner + redirects) and use
+    // consistent copy instead of a generic "request failed (401)" string.
+    if (res.status === 401) {
+      notifySessionExpired(path);
+      return { ok: false, status: res.status, message: SESSION_EXPIRED_MESSAGE, body: parsed };
+    }
     const message = typeof (parsed as { message?: unknown } | null)?.message === "string"
       ? (parsed as { message: string }).message
       : `request failed (${res.status})`;
