@@ -20,6 +20,7 @@ interface Merchant {
 
 const RISK_TIERS: RiskTier[] = ["unverified", "standard", "established", "enterprise"];
 const REASON_MAX_LENGTH = 500;
+const REASON_MIN_LENGTH = 3;
 
 function formatDate(iso: string): string {
   return formatUtcTimestamp(iso);
@@ -28,6 +29,29 @@ function formatDate(iso: string): string {
 function shortAddress(address: string | null): string {
   if (!address) return "—";
   return `${address.slice(0, 4)}…${address.slice(-4)}`;
+}
+
+// Shared reason-capture policy for every consequential admin action on this
+// page: a reason is always required, trimmed, at least REASON_MIN_LENGTH
+// characters, and no longer than REASON_MAX_LENGTH. Returns the trimmed
+// reason, or null if the admin cancelled or the input was invalid (in which
+// case `error` is set).
+function promptForReason(actionLabel: string, setError: (msg: string) => void): string | null {
+  const reason = window.prompt(
+    `Why? Required, shown in the activity log (max ${REASON_MAX_LENGTH} chars):`,
+    "",
+  );
+  if (reason === null) return null;
+  const trimmed = reason.trim();
+  if (trimmed.length < REASON_MIN_LENGTH) {
+    setError(`A reason of at least ${REASON_MIN_LENGTH} characters is needed to ${actionLabel}.`);
+    return null;
+  }
+  if (trimmed.length > REASON_MAX_LENGTH) {
+    setError(`Reason must be ${REASON_MAX_LENGTH} characters or fewer (was ${trimmed.length}).`);
+    return null;
+  }
+  return trimmed;
 }
 
 export default function AdminMerchantsPage() {
@@ -68,21 +92,11 @@ export default function AdminMerchantsPage() {
   async function sendPasswordReset(merchant: Merchant) {
     if (inFlight.current) return;
     if (!window.confirm(`Email a password-reset link to ${merchant.email}?`)) return;
-    const reason = window.prompt(
-      `Why? Required, shown in the activity log (max ${REASON_MAX_LENGTH} chars):`,
-      ""
-    );
-    if (!reason || reason.trim().length < 3) {
-      setError("A reason of at least 3 characters is needed to send a reset.");
-      return;
-    }
-    if (reason.trim().length > REASON_MAX_LENGTH) {
-      setError(`Reason must be ${REASON_MAX_LENGTH} characters or fewer (was ${reason.trim().length}).`);
-      return;
-    }
+    const reason = promptForReason("send a reset", setError);
+    if (reason === null) return;
     setPendingId(merchant.id);
     setError("");
-    const result = await apiPost(`/admin/merchants/${merchant.id}/password-reset`, { reason: reason.trim() });
+    const result = await apiPost(`/admin/merchants/${merchant.id}/password-reset`, { reason });
     if (result.ok) {
       window.alert(`Reset link sent to ${merchant.email}.`);
     } else {
@@ -105,15 +119,8 @@ export default function AdminMerchantsPage() {
 
     let reason: string | null = "";
     if (verb === "suspend") {
-      reason = window.prompt(
-        `Reason (optional, shown in the activity log, max ${REASON_MAX_LENGTH} chars):`,
-        ""
-      );
+      reason = promptForReason("suspend this merchant", setError);
       if (reason === null) return;
-      if (reason.trim().length > REASON_MAX_LENGTH) {
-        setError(`Reason must be ${REASON_MAX_LENGTH} characters or fewer (was ${reason.trim().length}).`);
-        return;
-      }
     }
 
     inFlight.current = true;
@@ -146,10 +153,13 @@ export default function AdminMerchantsPage() {
     )
       return;
 
+    const reason = promptForReason("change this merchant's tier", setError);
+    if (reason === null) return;
+
     inFlight.current = true;
     setPendingId(merchant.id);
     setError("");
-    const result = await apiPatch(`/admin/merchants/${merchant.id}/tier`, { risk_tier: riskTier });
+    const result = await apiPatch(`/admin/merchants/${merchant.id}/tier`, { risk_tier: riskTier, reason });
     if (result.ok) {
       await load();
     } else {
@@ -239,17 +249,17 @@ export default function AdminMerchantsPage() {
                           type="button"
                           className="btn btn-ghost btn-sm"
                           disabled={pendingId === m.id}
-                          onClick={() => toggleStatus(m)}
+                          onClick={() => sendPasswordReset(m)}
                         >
-                          {m.status === "suspended" ? "Reactivate" : "Suspend"}
+                          Send reset
                         </button>
                         <button
                           type="button"
                           className="btn btn-ghost btn-sm"
                           disabled={pendingId === m.id}
-                          onClick={() => sendPasswordReset(m)}
+                          onClick={() => toggleStatus(m)}
                         >
-                          Send reset
+                          {m.status === "suspended" ? "Reactivate" : "Suspend"}
                         </button>
                       </div>
                     </td>
@@ -259,14 +269,21 @@ export default function AdminMerchantsPage() {
             </table>
           </div>
         )}
-        {error && <div className="form-error">{error}</div>}
+
         {!loading && !loadError && merchants.length > 0 && merchants.length % PAGE_SIZE === 0 && (
-          <div className="admin-load-more">
-            <button type="button" className="btn btn-ghost" disabled={loadingMore} onClick={loadMore}>
+          <div style={{ marginTop: "1rem" }}>
+            <button
+              type="button"
+              className="btn btn-ghost"
+              disabled={loadingMore}
+              onClick={loadMore}
+            >
               {loadingMore ? "Loading…" : "Load more"}
             </button>
           </div>
         )}
+
+        {error && <div className="form-error" role="alert">{error}</div>}
       </div>
     </div>
   );
