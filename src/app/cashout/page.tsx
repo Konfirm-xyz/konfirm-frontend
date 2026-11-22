@@ -181,7 +181,7 @@ export default function CashoutPage() {
   }
 
   async function handleStart() {
-    if (inFlight.current) return;
+    if (inFlight.current || missingAddressStatus) return;
     inFlight.current = true;
     setStarting(true);
     paymentSubmitted.current = false;
@@ -291,7 +291,7 @@ export default function CashoutPage() {
               </div>
             ) : (
               <>
-                <button type="button" className="primary" disabled={starting} onClick={handleStart}>
+                <button type="button" className="primary" disabled={starting || Boolean(missingAddressStatus)} onClick={handleStart}>
                   {starting ? "Starting…" : "Connect wallet & start cash-out"}
                 </button>
                 <div className={`status${status || missingAddressStatus ? " error" : ""}`}>{status || missingAddressStatus}</div>
