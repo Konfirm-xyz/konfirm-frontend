@@ -6,6 +6,7 @@ import qrcode from "qrcode-generator";
 import { API_BASE } from "@/lib/api";
 import { useCheckoutMessages, useLocale } from "@/lib/i18n";
 import { friendlyMessage, randomMuxedId } from "@/lib/checkout";
+import { reportError } from "@/lib/report-error";
 
 const HORIZON_URL = "https://horizon-testnet.stellar.org";
 
@@ -34,7 +35,8 @@ export default function CheckoutClient({ params }: { params: Promise<{ linkId: s
     document.documentElement.lang = locale;
   }, [locale]);
 
-  const [loadingText, setLoadingText] = useState("Loading…");
+  const [loadingText, setLoadingText] = useState(t("loading"));
+  const [loadingIsError, setLoadingIsError] = useState(false);
   const [linkData, setLinkData] = useState<LinkData | null>(null);
   const [showQr, setShowQr] = useState(true);
   const [qrSvg, setQrSvg] = useState("");
@@ -117,7 +119,7 @@ export default function CheckoutClient({ params }: { params: Promise<{ linkId: s
       setQrSvg(qr.createSvgTag(5, 8));
       setQrUri(body.uri);
     } catch (err) {
-      console.error("[konfirm checkout] QR setup failed", err);
+      reportError("checkout: QR setup failed", err);
       setShowQr(false);
     }
   }
@@ -209,7 +211,14 @@ export default function CheckoutClient({ params }: { params: Promise<{ linkId: s
       const res = await fetch(`${API_BASE}/links/${linkId}/public`);
       if (cancelled) return;
       if (!res.ok) {
-        setLoadingText("This payment link could not be found.");
+        // Distinguish dead-link reasons (not found / expired / inactive /
+        // blocked) rather than collapsing every non-2xx into one generic
+        // "not found" — the payer deserves to know this isn't a transient
+        // glitch they should retry.
+        const body: { message?: string } = await res.json().catch(() => ({}));
+        reportError("checkout: link unavailable", body.message || `status ${res.status}`);
+        setLoadingText(body.message ? friendlyMessage(new Error(body.message)) : t("notFound"));
+        setLoadingIsError(true);
         return;
       }
       const data: LinkData = await res.json();
@@ -267,7 +276,15 @@ export default function CheckoutClient({ params }: { params: Promise<{ linkId: s
           <span className="mark">✓</span> Konfirm
         </div>
 
-        {!linkData && !confirmed && <div>{loadingText}</div>}
+        {!linkData && !confirmed && (
+          <div
+            className={`status${loadingIsError ? " error" : ""}`}
+            role={loadingIsError ? "alert" : "status"}
+            aria-live={loadingIsError ? "assertive" : "polite"}
+          >
+            {loadingText}
+          </div>
+        )}
 
         {linkData && !confirmed && (
           <div>

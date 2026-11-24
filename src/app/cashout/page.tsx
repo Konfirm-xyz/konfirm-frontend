@@ -7,7 +7,6 @@ import { useRequireAuth } from "@/lib/useAuth";
 import { reportError } from "@/lib/report-error";
 import { useBeforeUnload } from "@/lib/use-before-unload";
 
-const HORIZON_URL = "https://horizon-testnet.stellar.org";
 type Currency = "XLM" | "USDC";
 type View = "form" | "progress" | "success";
 
@@ -143,17 +142,18 @@ export default function CashoutPage() {
     if (signed.error) throw new Error(signed.error);
 
     showProgress("Sending your cash-out…");
-    const submitRes = await fetch(`${HORIZON_URL}/transactions`, {
+    const submitRes = await fetch(`${API_BASE}/withdrawals/submit-tx`, {
       method: "POST",
-      headers: { "Content-Type": "application/x-www-form-urlencoded" },
-      body: `tx=${encodeURIComponent(signed.signedTxXdr)}`,
+      credentials: "include",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ xdr: signed.signedTxXdr }),
     });
     if (cancelled.current) return;
     const submitResult = await submitRes.json();
     if (cancelled.current) return;
     if (!submitRes.ok) {
       const codes = submitResult.extras?.result_codes;
-      throw new Error(codes ? JSON.stringify(codes) : submitResult.title || "submission failed");
+      throw new Error(codes ? JSON.stringify(codes) : submitResult.title || submitResult.message || "submission failed");
     }
   }
 
@@ -246,6 +246,9 @@ export default function CashoutPage() {
       signingInFlight.current = false;
       reportError(err, { tags: { flow: "cashout", stage: "start" } });
       showFormError(friendlyMessage(err));
+    } finally {
+      signingInFlight.current = false;
+      if (!cancelled.current) setStarting(false);
     }
   }
 

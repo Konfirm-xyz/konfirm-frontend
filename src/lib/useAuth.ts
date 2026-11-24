@@ -44,6 +44,11 @@ interface UseRequireAuthOptions<T> {
 interface UseRequireAuthResult<T> {
   resolved: boolean;
   data: T | null;
+  /** Set when the check failed for a non-auth reason (5xx or network). A
+   * real 401 still redirects to login and leaves this null. */
+  error: AuthFailureKind | null;
+  /** Re-run the auth check (e.g. after a 5xx/network failure). No-op while skipped. */
+  retry: () => void;
 }
 
 export function useRequireAuth<T = unknown>({
@@ -55,6 +60,16 @@ export function useRequireAuth<T = unknown>({
   const router = useRouter();
   const [resolved, setResolved] = useState(false);
   const [data, setData] = useState<T | null>(null);
+
+  // Callers pass `select` as a fresh inline arrow on every render, so it is
+  // intentionally excluded from the effect's dependency array (re-running the
+  // auth check on every render would be wasteful). Reading it through a ref
+  // updated each render means the effect always invokes the latest `select`
+  // rather than the one captured when skip/meEndpoint/loginPath last changed
+  // — no stale-closure risk if a caller's extraction logic legitimately
+  // changes between renders (#361).
+  const selectRef = useRef(select);
+  selectRef.current = select;
 
   useEffect(() => {
     if (skip) return;
@@ -111,5 +126,5 @@ export function useRequireAuth<T = unknown>({
     };
   }, [loginPath, skip, router]);
 
-  return { resolved, data };
+  return { resolved, data, error, retry };
 }

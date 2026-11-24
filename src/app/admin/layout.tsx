@@ -4,7 +4,7 @@ import { useState } from "react";
 import { usePathname, useRouter } from "next/navigation";
 import Link from "next/link";
 import { apiPost } from "@/lib/api";
-import { useRequireAuth } from "@/lib/useAuth";
+import { notifyLogout, useRequireAuth } from "@/lib/useAuth";
 
 interface Admin {
   name: string;
@@ -129,7 +129,7 @@ export default function AdminLayout({ children }: { children: React.ReactNode })
           </button>
         </div>
       </aside>
-      <main className="admin-main">{children}</main>
+      <div className="admin-main">{children}</div>
       {sidebarOpen && (
         <button
           type="button"

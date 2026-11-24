@@ -1,77 +1,77 @@
 "use client";
 
-import { useState, type FormEvent } from "react";
+import { useState } from "react";
 import Link from "next/link";
-import { API_BASE } from "@/lib/api";
+import { apiPost } from "@/lib/api";
 
 export default function ForgotPasswordPage() {
   const [email, setEmail] = useState("");
   const [submitting, setSubmitting] = useState(false);
   const [sent, setSent] = useState(false);
-  const [status, setStatus] = useState("");
+  const [error, setError] = useState<string | null>(null);
 
-  async function handleSubmit(e: FormEvent) {
+  async function handleSubmit(e: React.FormEvent) {
     e.preventDefault();
+    setError(null);
     setSubmitting(true);
-    setStatus("");
     try {
-      const res = await fetch(`${API_BASE}/auth/forgot-password`, {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ email }),
-      });
-      if (res.status === 429) throw new Error("Too many requests. Please wait a minute and try again.");
-      // Shown whether or not an account exists, so the form can't be used to
-      // check which emails are registered.
-      if (!res.ok) throw new Error("Something went wrong. Please try again.");
+      await apiPost("/auth/forgot-password", { email });
       setSent(true);
     } catch (err) {
-      setStatus(err instanceof Error ? err.message : "Something went wrong. Please try again.");
+      setError(err instanceof Error ? err.message : "Something went wrong");
     } finally {
       setSubmitting(false);
     }
   }
 
   return (
-    <div className="page-center">
-      <div className="card narrow">
-        <div className="brand" style={{ marginBottom: 24 }}>
-          <span className="mark">✓</span> Konfirm
+    <main className="mx-auto flex min-h-screen max-w-md flex-col justify-center px-6 py-12">
+      <h1 className="text-2xl font-semibold">Forgot password</h1>
+      <p className="mt-2 text-sm text-gray-600">
+        Enter your email and we&apos;ll send you a reset link.
+      </p>
+
+      {sent ? (
+        <div className="mt-6 rounded-md border border-green-200 bg-green-50 p-4 text-sm text-green-800">
+          If an account exists for {email}, a reset link has been sent.
         </div>
-        <h1 style={{ marginBottom: 22 }}>Reset your password</h1>
-        {sent ? (
-          <p className="sub">
-            If an account exists for that email, we&apos;ve sent a link to choose a new password. It expires in 30 minutes.
-          </p>
-        ) : (
-          <form onSubmit={handleSubmit}>
-            <div className="field">
-              <label htmlFor="email">Email</label>
-              <input
-                id="email"
-                type="email"
-                autoComplete="email"
-                required
-                value={email}
-                onChange={(e) => setEmail(e.target.value)}
-              />
-            </div>
-            <button type="submit" className="primary" disabled={submitting}>
-              {submitting ? "Sending…" : "Send reset link"}
-            </button>
-            <div
-              className={`status${status ? " error" : ""}`}
-              role="alert"
-              aria-live={status ? "assertive" : "polite"}
-            >
-              {status}
-            </div>
-          </form>
-        )}
-        <div className="footer">
-          <Link href="/login">Back to log in</Link>
-        </div>
-      </div>
-    </div>
+      ) : (
+        <form onSubmit={handleSubmit} className="mt-6 space-y-4">
+          <div>
+            <label htmlFor="email" className="block text-sm font-medium">
+              Email
+            </label>
+            <input
+              id="email"
+              type="email"
+              required
+              value={email}
+              onChange={(e) => setEmail(e.target.value)}
+              className="mt-1 w-full rounded-md border px-3 py-2"
+            />
+          </div>
+
+          {error && (
+            <p className="text-sm text-red-600" role="alert">
+              {error}
+            </p>
+          )}
+
+          <button
+            type="submit"
+            disabled={submitting}
+            className="w-full rounded-md bg-black px-4 py-2 text-white disabled:opacity-50"
+          >
+            {submitting ? "Sending…" : "Send reset link"}
+          </button>
+        </form>
+      )}
+
+      <p className="mt-6 text-sm text-gray-600">
+        <Link href="/login" className="underline">
+          Back to login
+        </Link>
+      </p>
+    </main>
   );
 }

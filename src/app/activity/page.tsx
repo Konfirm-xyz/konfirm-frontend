@@ -6,7 +6,7 @@ import Link from "next/link";
 import { API_BASE, apiPost } from "@/lib/api";
 import { useRequireAuth, broadcastLogout } from "@/lib/useAuth";
 import { formatAmount } from "@/lib/format";
-import { shouldShowPollError } from "@/lib/poll";
+import { isTerminalAuthFailure } from "@/lib/poll";
 import FeeSettlement from "@/components/fee-settlement";
 
 type PaymentStatus = "paid" | "held" | "refunded" | "disputed";
@@ -98,9 +98,16 @@ function ActivityContent() {
         fetch(`${API_BASE}/payments/mine`),
         fetch(`${API_BASE}/payments/mine/pending`),
       ]);
+      // A 401 means the session is gone — retrying will never fix it. Redirect
+      // to login (same pattern as useRequireAuth) instead of feeding it into
+      // the transient-failure counter and showing a generic "poll error".
+      if (isTerminalAuthFailure(paymentsRes.status) || isTerminalAuthFailure(pendingRes.status)) {
+        router.push("/login");
+        return;
+      }
       if (!paymentsRes.ok || !pendingRes.ok) {
         consecutiveFailures.current += 1;
-        if (shouldShowPollError(consecutiveFailures.current, POLL_FAILURE_THRESHOLD)) setPollError(true);
+        if (consecutiveFailures.current >= POLL_FAILURE_THRESHOLD) setPollError(true);
         return;
       }
       const paymentsBody: Payment[] = await paymentsRes.json();
@@ -112,9 +119,9 @@ function ActivityContent() {
       setPollError(false);
     } catch {
       consecutiveFailures.current += 1;
-      if (shouldShowPollError(consecutiveFailures.current, POLL_FAILURE_THRESHOLD)) setPollError(true);
+      if (consecutiveFailures.current >= POLL_FAILURE_THRESHOLD) setPollError(true);
     }
-  }, [hasAddress]);
+  }, [hasAddress, router]);
 
   // The recursive scheduling lives here, in a plain local function, rather
   // than inside the `poll` callback referencing itself — a useCallback
