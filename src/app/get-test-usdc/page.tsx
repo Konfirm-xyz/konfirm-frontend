@@ -5,7 +5,6 @@ import { API_BASE } from "@/lib/api";
 import { reportError } from "@/lib/report-error";
 import { useBeforeUnload } from "@/lib/use-before-unload";
 
-const HORIZON_URL = "https://horizon-testnet.stellar.org";
 type View = "step1" | "progress" | "step2" | "success";
 
 function friendlyMessage(err: unknown): string {
@@ -172,15 +171,15 @@ export default function GetTestUsdcPage() {
       if (signed.error) throw new Error(signed.error);
 
       showProgress("Sending…");
-      const submitRes = await fetch(`${HORIZON_URL}/transactions`, {
+      const submitRes = await fetch(`${API_BASE}/deposits/submit-tx`, {
         method: "POST",
-        headers: { "Content-Type": "application/x-www-form-urlencoded" },
-        body: `tx=${encodeURIComponent(signed.signedTxXdr)}`,
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ xdr: signed.signedTxXdr }),
       });
       const submitResult = await submitRes.json();
       if (!submitRes.ok) {
         const codes = submitResult.extras?.result_codes;
-        throw new Error(codes ? JSON.stringify(codes) : submitResult.title || "submission failed");
+        throw new Error(codes ? JSON.stringify(codes) : submitResult.message || submitResult.title || "submission failed");
       }
       setSigningInFlight(false);
 

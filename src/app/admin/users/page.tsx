@@ -33,33 +33,51 @@ export default function AdminUsersPage() {
   const [offset, setOffset] = useState(0);
   const [hasMore, setHasMore] = useState(false);
   const [error, setError] = useState(false);
+  const [reloadKey, setReloadKey] = useState(0);
 
   useEffect(() => {
+    let cancelled = false;
     (async () => {
-      const res = await fetch(`${API_BASE}/admin/users?limit=${PAGE_SIZE}&offset=0`, { credentials: "include" });
-      if (res.ok) {
+      try {
+        const res = await fetch(`${API_BASE}/admin/users?limit=${PAGE_SIZE}&offset=0`, { credentials: "include" });
+        if (!res.ok) throw new Error(`HTTP ${res.status}`);
         const rows: UserRow[] = await res.json();
+        if (cancelled) return;
         setUsers(rows);
         setOffset(rows.length);
         setHasMore(rows.length === PAGE_SIZE);
         setError(false);
-      } else {
-        setError(true);
+      } catch {
+        if (!cancelled) setError(true);
+      } finally {
+        if (!cancelled) setLoading(false);
       }
-      setLoading(false);
     })();
-  }, []);
+    return () => {
+      cancelled = true;
+    };
+  }, [reloadKey]);
+
+  function retry() {
+    setLoading(true);
+    setError(false);
+    setReloadKey((k) => k + 1);
+  }
 
   async function loadMore() {
     setLoadingMore(true);
-    const res = await fetch(`${API_BASE}/admin/users?limit=${PAGE_SIZE}&offset=${offset}`, { credentials: "include" });
-    if (res.ok) {
+    try {
+      const res = await fetch(`${API_BASE}/admin/users?limit=${PAGE_SIZE}&offset=${offset}`, { credentials: "include" });
+      if (!res.ok) throw new Error(`HTTP ${res.status}`);
       const rows: UserRow[] = await res.json();
       setUsers((prev) => [...prev, ...rows]);
       setOffset((prev) => prev + rows.length);
       setHasMore(rows.length === PAGE_SIZE);
+    } catch {
+      setError(true);
+    } finally {
+      setLoadingMore(false);
     }
-    setLoadingMore(false);
   }
 
   const q = search.trim().toLowerCase();
@@ -67,6 +85,7 @@ export default function AdminUsersPage() {
 
   return (
     <div>
+      <title>Users · Konfirm Admin</title>
       <h1>Users</h1>
       <p className="hint">
         There&apos;s no separate user-account system — this is every unique address that has ever paid through the
@@ -89,7 +108,12 @@ export default function AdminUsersPage() {
       {loading ? (
         <LoadingSpinner />
       ) : error ? (
-        <div className="empty">Could not load users — try again.</div>
+        <div className="empty">
+          Could not load users — try again.{" "}
+          <button type="button" className="btn btn-secondary" onClick={retry}>
+            Retry
+          </button>
+        </div>
       ) : visible.length === 0 ? (
         <div className="empty">{users.length === 0 ? "No payer activity yet." : "No users match this search."}</div>
       ) : (
@@ -127,7 +151,7 @@ export default function AdminUsersPage() {
               Showing {users.length} of {hasMore ? `${users.length}+` : users.length}
             </span>
             {hasMore && (
-              <button type="button" className="btn btn-secondary" onClick={loadMore} disabled={loadingMore}>
+              <button type="button" className="secondary" onClick={loadMore} disabled={loadingMore}>
                 {loadingMore ? "Loading…" : "Load more"}
               </button>
             )}

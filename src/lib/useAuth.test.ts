@@ -45,11 +45,15 @@ describe("useRequireAuth", () => {
       useRequireAuth({ meEndpoint: "/admin/auth/me", loginPath: "/admin/login" }),
     );
 
-    await waitFor(() => expect(push).toHaveBeenCalledWith("/admin/login"));
+    const { result } = renderHook(() =>
+      useRequireAuth({ meEndpoint: "/admin/auth/me", loginPath: "/admin/login" }),
+    );
+
+    await waitFor(() => expect(push).toHaveBeenCalledWith("/admin/login?reason=session_expired"));
     expect(result.current.resolved).toBe(false);
   });
 
-  it("redirects to login when the body is malformed", async () => {
+  it("surfaces server_error (no redirect) when the body is malformed", async () => {
     global.fetch = vi.fn().mockResolvedValue({
       ok: true,
       json: async () => {
@@ -57,11 +61,12 @@ describe("useRequireAuth", () => {
       },
     } as unknown as Response);
 
-    renderHook(() =>
+    const { result } = renderHook(() =>
       useRequireAuth({ meEndpoint: "/admin/auth/me", loginPath: "/admin/login" }),
     );
 
-    await waitFor(() => expect(push).toHaveBeenCalledWith("/admin/login"));
+    await waitFor(() => expect(result.current.error).toBe("server_error"));
+    expect(push).not.toHaveBeenCalled();
   });
 
   it("re-checks auth on a bfcache pageshow restore", async () => {

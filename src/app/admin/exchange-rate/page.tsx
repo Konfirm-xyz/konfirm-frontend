@@ -31,6 +31,7 @@ export default function AdminExchangeRatePage() {
   const [conversions, setConversions] = useState<Conversion[]>([]);
   const [loading, setLoading] = useState(true);
   const [loadingMore, setLoadingMore] = useState(false);
+  const [refreshingRate, setRefreshingRate] = useState(false);
   const [hasMore, setHasMore] = useState(false);
   const [error, setError] = useState(false);
 
@@ -57,6 +58,16 @@ export default function AdminExchangeRatePage() {
       setLoading(false);
     })();
   }, []);
+
+  async function handleRefreshRate() {
+    setRefreshingRate(true);
+    try {
+      const liveResult = await apiFetch<LiveRate>("/admin/exchange-rate/live");
+      if (liveResult.ok && liveResult.data) setLive(liveResult.data);
+    } finally {
+      setRefreshingRate(false);
+    }
+  }
 
   async function handleLoadMore() {
     setLoadingMore(true);
@@ -90,6 +101,14 @@ export default function AdminExchangeRatePage() {
                   {live?.rate ?? (live?.reachable === false ? "unreachable" : "—")}
                 </div>
                 {live?.reachable === false && <div className="stat-sub">Could not reach Horizon testnet just now</div>}
+                <button
+                  type="button"
+                  onClick={handleRefreshRate}
+                  disabled={refreshingRate}
+                  style={{ marginTop: 12 }}
+                >
+                  {refreshingRate ? "Refreshing…" : "Refresh"}
+                </button>
               </div>
             </div>
           </div>

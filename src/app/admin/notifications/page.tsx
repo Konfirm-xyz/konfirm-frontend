@@ -119,7 +119,7 @@ export default function AdminNotificationsPage() {
               {items.map((n) => (
                 <li key={`${n.type}-${n.id}`}>
                   <span className="when">{formatUtcTimestamp(n.created_at)}</span>
-                  <span className={`status-pill ${n.severity === "critical" ? "failed" : n.severity === "warning" ? "held" : "active"}`}>
+                  <span className={`status-pill ${severityPillClass(n.severity)}`}>
                     {n.severity}
                   </span>{" "}
                   {n.message}
@@ -133,7 +133,7 @@ export default function AdminNotificationsPage() {
                 {hasMore ? " — there may be more" : ""}
               </span>
               {hasMore && (
-                <button type="button" className="btn-secondary" onClick={loadMore} disabled={loadingMore}>
+                <button type="button" className="secondary" onClick={loadMore} disabled={loadingMore}>
                   {loadingMore ? "Loading…" : "Load more"}
                 </button>
               )}

@@ -4,7 +4,7 @@ import { Suspense, useCallback, useEffect, useMemo, useRef, useState } from "rea
 import { useRouter, useSearchParams } from "next/navigation";
 import Link from "next/link";
 import { API_BASE, apiPost } from "@/lib/api";
-import { useRequireAuth } from "@/lib/useAuth";
+import { useRequireAuth, broadcastLogout } from "@/lib/useAuth";
 import { formatAmount } from "@/lib/format";
 import { isTerminalAuthFailure, shouldShowPollError } from "@/lib/poll";
 import FeeSettlement from "@/components/fee-settlement";
@@ -87,6 +87,8 @@ function ActivityContent() {
   const [dateFilter, setDateFilter] = useState<DateRangePreset>("all");
   const [expandedId, setExpandedId] = useState<string | null>(null);
   const [now, setNow] = useState<number | null>(null);
+  const [logoutError, setLogoutError] = useState(false);
+  const [loggingOut, setLoggingOut] = useState(false);
   const consecutiveFailures = useRef(0);
 
   const poll = useCallback(async () => {
@@ -105,7 +107,7 @@ function ActivityContent() {
       }
       if (!paymentsRes.ok || !pendingRes.ok) {
         consecutiveFailures.current += 1;
-        if (shouldShowPollError(consecutiveFailures.current, POLL_FAILURE_THRESHOLD)) setPollError(true);
+        if (consecutiveFailures.current >= POLL_FAILURE_THRESHOLD) setPollError(true);
         return;
       }
       const paymentsBody: Payment[] = await paymentsRes.json();
@@ -117,7 +119,7 @@ function ActivityContent() {
       setPollError(false);
     } catch {
       consecutiveFailures.current += 1;
-      if (shouldShowPollError(consecutiveFailures.current, POLL_FAILURE_THRESHOLD)) setPollError(true);
+      if (consecutiveFailures.current >= POLL_FAILURE_THRESHOLD) setPollError(true);
     }
   }, [hasAddress, router]);
 
@@ -169,8 +171,25 @@ function ActivityContent() {
   }, [resolved, poll]);
 
   async function handleLogout() {
-    await apiPost("/auth/logout");
-    router.push("/login");
+    if (loggingOut) return;
+    setLoggingOut(true);
+    setLogoutError(false);
+    try {
+      const result = await apiPost("/auth/logout");
+      if (!result.ok) {
+        // The server never invalidated the session cookie — stay put so the
+        // user doesn't get a false sense of being logged out.
+        setLogoutError(true);
+        return;
+      }
+      broadcastLogout();
+      router.push("/login");
+    } catch {
+      // Network-level failure (offline/DNS/CORS) — fetch rejected.
+      setLogoutError(true);
+    } finally {
+      setLoggingOut(false);
+    }
   }
 
   // Held payments are listed but never counted as received until an admin
