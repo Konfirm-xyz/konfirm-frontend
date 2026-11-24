@@ -38,6 +38,12 @@ jobs:
         env:
           BACKEND_URL: http://localhost:4001
 
+      # Runs the vitest suite (`vitest run`). Without this step a PR that
+      # breaks an existing test would still pass the required `build`
+      # check, since neither lint nor `next build` executes vitest.
+      - name: Test
+        run: npm test
+
   # Split out from `build` (2026-11-14): dependency-vulnerability findings
   # are a real, tracked problem (frontend#231) but a different kind of
   # problem than "does this PR's own code work" — bundling them into one

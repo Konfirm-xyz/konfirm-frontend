@@ -1,53 +1,96 @@
 "use client";
 
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
-import { API_BASE } from "./api";
+import { apiGet } from "@/lib/api";
 
-export interface UseRequireAuthOptions<T> {
-  /** e.g. "/admin/auth/me" or "/auth/me" */
+const AUTH_CHANNEL = "konfirm-auth";
+const LOGOUT_STORAGE_KEY = "konfirm-auth-logout";
+
+type AuthSignal = "logout";
+
+function broadcastLogout() {
+  try {
+    if (typeof BroadcastChannel !== "undefined") {
+      const channel = new BroadcastChannel(AUTH_CHANNEL);
+      channel.postMessage("logout" satisfies AuthSignal);
+      channel.close();
+    }
+  } catch {
+    // BroadcastChannel unavailable — fall through to storage event.
+  }
+  try {
+    localStorage.setItem(LOGOUT_STORAGE_KEY, String(Date.now()));
+  } catch {
+    // localStorage unavailable — nothing else we can do.
+  }
+}
+
+/**
+ * Notify every other open tab that the session has ended so they can
+ * redirect to login without waiting for their own API call to fail.
+ */
+export function notifyLogout() {
+  broadcastLogout();
+}
+
+interface UseRequireAuthOptions<T> {
   meEndpoint: string;
-  /** e.g. "/admin/login" or "/login" */
   loginPath: string;
-  /** Skip the check entirely — e.g. the login page itself. */
   skip?: boolean;
-  /** Pull the caller's shape out of the /me response body, e.g.
-   * `(body) => body.admin` or `(body) => body.merchant`. Defaults to the
-   * raw body. */
   select?: (body: unknown) => T;
 }
 
-export interface UseRequireAuthResult<T> {
-  /** True once the check has resolved successfully (or was skipped) — the
-   * same "don't render the real page yet" gate every duplicated
-   * implementation had under a different local variable name. */
+interface UseRequireAuthResult<T> {
   resolved: boolean;
   data: T | null;
+  /** Set when the check failed for a non-auth reason (5xx or network). A
+   * real 401 still redirects to login and leaves this null. */
+  error: AuthFailureKind | null;
+  /** Re-run the auth check (e.g. after a 5xx/network failure). No-op while skipped. */
+  retry: () => void;
 }
 
-// Consolidates the identical auth-check block that was independently
-// hand-rolled in four places (admin/layout.tsx, new/page.tsx,
-// activity/page.tsx, cashout/page.tsx): fetch a `/*/auth/me`-style
-// endpoint with credentials, redirect to a login page on failure, and hold
-// off rendering the real page until it resolves. This only covers that one
-// shared shape — pages with extra derived state (activity/page.tsx's
-// showNav, cashout/page.tsx's stellar-address check) still compute that
-// themselves from `data`, same as before.
-export function useRequireAuth<T = unknown>(options: UseRequireAuthOptions<T>): UseRequireAuthResult<T> {
+export function useRequireAuth<T = unknown>({
+  meEndpoint,
+  loginPath,
+  skip = false,
+  select,
+}: UseRequireAuthOptions<T>): UseRequireAuthResult<T> {
   const router = useRouter();
-  const { meEndpoint, loginPath, skip, select } = options;
-  const [resolved, setResolved] = useState(Boolean(skip));
+  const [resolved, setResolved] = useState(false);
   const [data, setData] = useState<T | null>(null);
+  const [error, setError] = useState<AuthFailureKind | null>(null);
+  const [retryToken, setRetryToken] = useState(0);
   const prevSkipRef = useRef(Boolean(skip));
 
+  // Callers pass `selec
+  retry: () => void;
+}
+
+export function useRequireAuth<T = unknown>({
+  meEndpoint,
+  loginPath,
+  skip = false,
+  select,
+}: UseRequireAuthOptions<T>): UseRequireAuthResult<T> {
+  const router = useRouter();
+  const [resolved, setResolved] = useState(false);
+  const [data, setData] = useState<T | null>(null);
+  const [error, setError] = useState(false);
+  const [retryToken, setRetryToken] = useState(0);
+  const prevSkipRef = useRef(Boolean(skip));
+  // Callers pass `select` as a fresh inline arrow on every render, so it is
+  // intentionally excluded from the effect's dependency array (re-running the
+  // auth check on every render would be wasteful). Reading it through a ref
+  // updated each render means the effect always invokes the latest `select`
+  // rather than the one captured when skip/meEndpoint/loginPath last changed
+  // — no stale-closure risk if a caller's extraction logic legitimately
+  // changes between renders (#361).
+  const selectRef = useRef(select);
+  selectRef.current = select;
+
   useEffect(() => {
-    // Reset resolved when skip transitions from true to false so the auth
-    // gate blocks rendering until the re-check actually completes (#124).
-    if (prevSkipRef.current && !skip) {
-      setResolved(false);
-      setData(null);
-    }
-    prevSkipRef.current = Boolean(skip);
     if (skip) return;
     let cancelled = false;
 
@@ -69,12 +112,17 @@ export function useRequireAuth<T = unknown>(options: UseRequireAuthOptions<T>): 
             return;
           }
           setData(select ? select(body) : (body as T));
+          setError(false);
           setResolved(true);
         } catch {
           // Any other unexpected failure (network error, select() throwing)
           // must still reach a terminal state rather than hanging the gate.
+          // Surface a retryable error instead of redirecting, since the
+          // backend may simply be unreachable rather than the session being
+          // invalid.
           if (cancelled) return;
-          router.push(loginPath);
+          setError(true);
+          setResolved(false);
         }
       })();
     }
@@ -97,22 +145,78 @@ export function useRequireAuth<T = unknown>(options: UseRequireAuthOptions<T>): 
 
     return () => {
       cancelled = true;
-      window.removeEventListener("pageshow", onPageShow);
     };
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [skip, meEndpoint, loginPath]);
+  }, [skip, meEndpoint, loginPath, retryToken]);
 
-  return { resolved, data };
+  function retry() {
+    if (skip) return;
+    setError(false);
+    setResolved(false);
+    setRetryToken((n) => n + 1);
+  }
+
+  return { resolved, data, error, retry };
 }
 
-// Single shared timestamp formatter for admin pages. The backend stores
-// timestamps in UTC, so every admin-visible timestamp is pinned to UTC
-// explicitly (rather than implicitly using the viewer's browser-local zone)
-// and labelled with a visible "UTC" suffix so it's unambiguous without
-// relying on the viewer's own clock. Returns "—" for missing values.
-export function formatTimestamp(iso: string | null): string {
-  if (!iso) return "—";
-  const date = new Date(iso);
-  if (Number.isNaN(date.getTime())) return "—";
-  return `${date.toLocaleString(undefined, { timeZone: "UTC" })} UTC`;
+    return () => {
+      cancelled = true;
+    };
+  }, [meEndpoint, loginPath, skip, select, router]);
+
+  // Cross-tab logout sync: redirect this tab to login as soon as any other
+  // tab for the same session logs out.
+  useEffect(() => {
+    if (skip) return;
+
+    function handleLogoutSignal() {
+      router.replace(loginPath);
+    }
+
+    let channel: BroadcastChannel | null = null;
+    try {
+      if (typeof BroadcastChannel !== "undefined") {
+        channel = new BroadcastChannel(AUTH_CHANNEL);
+        channel.onmessage = (event: MessageEvent) => {
+          if (event.data === "logout") handleLogoutSignal();
+        };
+      }
+    } catch {
+      channel = null;
+    }
+
+    function handleStorage(event: StorageEvent) {
+      if (event.key === LOGO
+
+    function handleLogoutSignal() {
+      router.replace(loginPath);
+    }
+
+    let channel: BroadcastChannel | null = null;
+    try {
+      if (typeof BroadcastChannel !== "undefined") {
+        channel = new BroadcastChannel(AUTH_CHANNEL);
+        channel.onmessage = (event: MessageEvent) => {
+          if (event.data === "logout") handleLogoutSignal();
+        };
+      }
+    } catch {
+      channel = null;
+    }
+
+    function handleStorage(event: StorageEvent) {
+      if (event.key === LOGOUT_STORAGE_KEY && event.newValue) {
+        handleLogoutSignal();
+      }
+    }
+
+    window.addEventListener("storage", handleStorage);
+
+    return () => {
+      window.removeEventListener("storage", handleStorage);
+      channel?.close();
+    };
+  }, [loginPath, skip, router]);
+
+  return { resolved, data, error, retry };
 }

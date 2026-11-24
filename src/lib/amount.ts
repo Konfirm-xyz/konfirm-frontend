@@ -1,45 +1,72 @@
+// Amount parsing helpers shared by the send/new-payment flows.
+//
+// Inputs come from free-text fields, so we normalise common grouping styles
+// (US `1,234.56`, EU `1.234,56`, space-separated `1 234,56`) before converting
+// to a number. Anything we cannot confidently interpret fails closed (null)
+// so callers never act on a silently coerced value.
+
 /**
- * Accepts pasted real-world price text — currency symbols/whitespace,
- * US grouping ("$1,234.56") and EU grouping ("1.234,56" or "1 234,56") —
- * and returns the numeric value, or null if it still isn't a valid number.
- * A plain `Number(...)` call rejects any of this with the same generic
- * "enter an amount" error as truly empty input (#195).
+ * Largest amount we accept from user input. Kept well below
+ * Number.MAX_SAFE_INTEGER so the string -> number conversion can never lose
+ * precision, and so absurdly large values are rejected rather than silently
+ * rounded.
  */
-export function parseAmount(raw: string): number | null {
-  let s = raw.trim().replace(/[^0-9.,\s-]/g, "").trim();
-  if (!s) return null;
+export const MAX_AMOUNT = 1_000_000_000_000; // 1 trillion
 
-  const lastComma = s.lastIndexOf(",");
-  const lastDot = s.lastIndexOf(".");
+/**
+ * Parse a user-entered amount string into a number.
+ *
+ * Returns null for empty, malformed, non-finite, or out-of-range input.
+ */
+export function parseAmount(input: string): number | null {
+  if (typeof input !== "string") return null;
 
-  if (lastComma > -1 && lastDot > -1) {
-    // Whichever separator appears last is the decimal point.
-    if (lastComma > lastDot) {
+  // Strip currency symbols and whitespace (including non-breaking spaces).
+  let s = input.replace(/[\s\u00a0]/g, "").replace(/[$€£¥]/g, "");
+  if (s === "") return null;
+
+  // Reject anything that still contains characters other than digits,
+  // separators, or a leading sign.
+  if (!/^[+-]?[0-9.,]+$/.test(s)) return null;
+
+  const hasComma = s.includes(",");
+  const hasDot = s.includes(".");
+
+  if (hasComma && hasDot) {
+    // Both present: whichever appears last is the decimal separator.
+    if (s.lastIndexOf(",") > s.lastIndexOf(".")) {
+      // EU style: dots are thousands, comma is decimal.
       s = s.replace(/\./g, "").replace(",", ".");
     } else {
+      // US style: commas are thousands, dot is decimal.
       s = s.replace(/,/g, "");
     }
-  } else if (lastComma > -1) {
-    // Only commas: decimal comma (EU) if exactly one with 1-2 digits after
-    // it, otherwise thousands separators.
+  } else if (hasComma) {
     const parts = s.split(",");
-    if (parts.length === 2 && parts[1].length <= 2) {
+    if (parts.length === 2 && parts[1].length !== 3) {
+      // Lone comma with a non-three-digit tail is a decimal separator.
       s = s.replace(",", ".");
     } else {
+      // Otherwise treat commas as thousands separators.
       s = s.replace(/,/g, "");
     }
-  } else if (lastDot > -1) {
+  } else if (hasDot) {
     const parts = s.split(".");
     if (parts.length > 2) {
-      // Multiple dots: thousands separators (EU style, e.g. "1.234.567").
+      // Multiple dots with no comma: EU thousands separators.
       s = s.replace(/\./g, "");
     }
-    // Single dot: already a valid decimal point, leave as-is.
   }
 
-  s = s.replace(/\s/g, "");
   const num = Number(s);
-  return Number.isFinite(num) ? num : null;
+  if (!Number.isFinite(num)) return null;
+
+  // Reject values that exceed our application maximum. This also guarantees
+  // the value stays within the safe-integer range, so no precision was lost
+  // during the string -> number conversion above.
+  if (Math.abs(num) > MAX_AMOUNT) return null;
+
+  return num;
 }
 
 export type Currency = "XLM" | "USDC" | "EURC";
@@ -49,5 +76,12 @@ export type Currency = "XLM" | "USDC" | "EURC";
  *  USDC and EURC are cent-precision assets so 2dp is correct for them.
  */
 export const CURRENCY_DECIMALS: Record<Currency, number> = { XLM: 7, USDC: 2, EURC: 2 };
+
+/** Placeholder hint for an amount input, e.g. "0.00" for USDC/EURC and
+ *  "0.0000000" for XLM, so it reflects the currency's real precision (#351).
+ */
+export function amountPlaceholder(currency: Currency): string {
+  return "0." + "0".repeat(CURRENCY_DECIMALS[currency]);
+}
 
 export const CURRENCY_SYMBOLS: Record<Currency, string> = { XLM: "", USDC: "$", EURC: "€" };

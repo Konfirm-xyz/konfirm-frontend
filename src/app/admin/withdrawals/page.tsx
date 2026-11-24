@@ -4,6 +4,7 @@ import LoadingSpinner from "@/components/LoadingSpinner";
 import { useEffect, useState } from "react";
 import { apiFetch } from "@/lib/api";
 import { formatUtcTimestamp } from "@/lib/format";
+import { explorerUrl } from "@/lib/explorer";
 
 interface WithdrawalAttempt {
   id: string;
@@ -115,7 +116,11 @@ export default function AdminWithdrawalsPage() {
                       <div className="mono">{a.merchant_email}</div>
                     </td>
                     <td>{a.currency}</td>
-                    <td className="mono">{a.anchor_tx_id}</td>
+                    <td className="mono">
+                      <a href={explorerUrl(a.anchor_tx_id, "testnet")} target="_blank" rel="noreferrer">
+                        {a.anchor_tx_id}
+                      </a>
+                    </td>
                     <td>
                       {a.last_status ? (
                         <span className={`status-pill ${a.last_status}`}>{a.last_status}</span>

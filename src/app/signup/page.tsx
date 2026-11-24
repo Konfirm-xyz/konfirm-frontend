@@ -4,12 +4,13 @@ import { Suspense, useEffect, useState, type FormEvent } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
 import Link from "next/link";
 import PasswordInput from "@/components/PasswordInput";
-import { API_BASE } from "@/lib/api";
+import { apiFetch, apiPost } from "@/lib/api";
 import { reportError } from "@/lib/report-error";
 
 function SignupForm() {
   const router = useRouter();
   const searchParams = useSearchParams();
+  const [checkingAuth, setCheckingAuth] = useState(true);
 
   // Already-authenticated visitors shouldn't see the signup form — bounce
   // them straight to the app instead.
@@ -17,18 +18,22 @@ function SignupForm() {
     let cancelled = false;
     (async () => {
       try {
-        const res = await fetch(`${API_BASE}/auth/me`, { credentials: "include" });
+        const res = await apiFetch("/auth/me");
         if (!cancelled && res.ok) {
           router.replace("/activity");
+          return;
         }
       } catch {
         // Ignore — just means we stay on the signup page.
       }
+      if (!cancelled) setCheckingAuth(false);
     })();
     return () => {
       cancelled = true;
     };
   }, [router]);
+
+  if (checkingAuth) return null;
   // Present only when someone arrived via another merchant's referral
   // link (see /referrals) — an invalid/expired code is rejected silently
   // server-side, not surfaced as an error here, since it should never
@@ -51,17 +56,12 @@ function SignupForm() {
     setSubmitting(true);
     setStatus("");
     try {
-      const res = await fetch(`${API_BASE}/auth/signup`, {
-        method: "POST",
-        credentials: "include",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          name,
-          email,
-          password,
-          stellar_base_address: addressTrimmed,
-          ...(referralCode ? { referral_code: referralCode } : {}),
-        }),
+      const res = await apiPost("/auth/signup", {
+        name,
+        email,
+        password,
+        stellar_base_address: addressTrimmed,
+        ...(referralCode ? { referral_code: referralCode } : {}),
       });
       const body = await res.json().catch(() => ({}));
       if (!res.ok) {
@@ -76,6 +76,8 @@ function SignupForm() {
       setSubmitting(false);
     }
   }
+
+  if (checkingAuth) return null;
 
   return (
     <div className="page-center">
@@ -169,7 +171,7 @@ function SignupForm() {
 }
 
 // useSearchParams() requires a Suspense boundary in the app router — same
-// pattern already used in src/app/activity/page.tsx for the same reason.
+// pattern already used in src/app/reset-password/page.tsx for the same reason.
 export default function SignupPage() {
   return (
     <Suspense fallback={null}>

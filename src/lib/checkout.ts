@@ -13,6 +13,7 @@ export function friendlyMessage(err: unknown): string {
     "link is not active",
     "link has expired",
     "link not found",
+    "link is blocked",
     "this address is not permitted to pay",
     "pay-what-you-want links need an amount",
   ];
