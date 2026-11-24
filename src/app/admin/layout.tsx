@@ -1,9 +1,10 @@
 "use client";
 
+import { useState } from "react";
 import { usePathname, useRouter } from "next/navigation";
 import Link from "next/link";
 import { apiPost } from "@/lib/api";
-import { useRequireAuth } from "@/lib/useAuth";
+import { notifyLogout, useRequireAuth } from "@/lib/useAuth";
 
 interface Admin {
   name: string;
@@ -23,6 +24,7 @@ const NAV_GROUPS = [
     items: [
       { href: "/admin/payments", label: "Payments" },
       { href: "/admin/fee-revenue", label: "Fee Revenue" },
+      { href: "/admin/fees-owed", label: "Fees Owed" },
       { href: "/admin/exchange-rate", label: "Exchange Rate" },
       { href: "/admin/pay-links", label: "Pay Links" },
       { href: "/admin/x402-settlements", label: "x402 Settlements" },
@@ -54,6 +56,8 @@ export default function AdminLayout({ children }: { children: React.ReactNode })
   const pathname = usePathname();
   const router = useRouter();
   const isLoginPage = pathname === "/admin/login";
+  const [sidebarOpen, setSidebarOpen] = useState(false);
+  const [logoutError, setLogoutError] = useState<string | null>(null);
 
   // The login page itself never needs this check — running it there too
   // would just redirect straight back to itself.
@@ -65,15 +69,33 @@ export default function AdminLayout({ children }: { children: React.ReactNode })
   });
 
   async function handleLogout() {
-    await apiPost("/admin/auth/logout");
-    router.push("/admin/login");
+    setLogoutError(null);
+    try {
+      const result = await apiPost("/admin/auth/logout");
+      if (!result.ok) {
+        setLogoutError("Couldn't log out — try again");
+        return;
+      }
+      router.push("/admin/login");
+    } catch {
+      setLogoutError("Couldn't log out — try again");
+    }
   }
 
   if (isLoginPage) return <>{children}</>;
   if (!resolved) return null;
 
   return (
-    <div className="admin-shell">
+    <div className={`admin-shell${sidebarOpen ? " sidebar-open" : ""}`}>
+      <button
+        type="button"
+        className="admin-sidebar-toggle"
+        aria-label={sidebarOpen ? "Close navigation" : "Open navigation"}
+        aria-expanded={sidebarOpen}
+        onClick={() => setSidebarOpen((open) => !open)}
+      >
+        <span aria-hidden="true">{sidebarOpen ? "✕" : "☰"}</span>
+      </button>
       <aside className="admin-sidebar">
         <div className="brand">
           <span className="mark">✓</span> Konfirm Admin
@@ -83,7 +105,12 @@ export default function AdminLayout({ children }: { children: React.ReactNode })
             <div key={group.label} className="admin-sidebar-group">
               <div className="admin-sidebar-group-label">{group.label}</div>
               {group.items.map((item) => (
-                <Link key={item.href} href={item.href} className={pathname === item.href ? "active" : ""}>
+                <Link
+                  key={item.href}
+                  href={item.href}
+                  className={pathname === item.href ? "active" : ""}
+                  aria-current={pathname === item.href ? "page" : undefined}
+                >
                   {item.label}
                 </Link>
               ))}
@@ -92,12 +119,25 @@ export default function AdminLayout({ children }: { children: React.ReactNode })
         </nav>
         <div className="admin-sidebar-footer">
           {admin && <div className="hint">{admin.name}</div>}
+          {logoutError && (
+            <div className="hint" role="alert">
+              {logoutError}
+            </div>
+          )}
           <button type="button" onClick={handleLogout}>
             Log out
           </button>
         </div>
       </aside>
-      <main className="admin-main">{children}</main>
+      <div className="admin-main">{children}</div>
+      {sidebarOpen && (
+        <button
+          type="button"
+          className="admin-sidebar-backdrop"
+          aria-label="Close navigation"
+          onClick={() => setSidebarOpen(false)}
+        />
+      )}
     </div>
   );
 }

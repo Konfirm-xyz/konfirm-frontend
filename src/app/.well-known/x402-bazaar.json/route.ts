@@ -9,10 +9,18 @@
 const BACKEND_URL = process.env.BACKEND_URL ?? "http://localhost:4001";
 
 export async function GET() {
-  const res = await fetch(`${BACKEND_URL}/bazaar/manifest`, { cache: "no-store" });
-  const body = await res.text();
-  return new Response(body, {
-    status: res.status,
-    headers: { "Content-Type": "application/json" },
-  });
+  try {
+    const res = await fetch(`${BACKEND_URL}/bazaar/manifest`, { cache: "no-store" });
+    const body = await res.text();
+    return new Response(body, {
+      status: res.status,
+      headers: { "Content-Type": "application/json" },
+    });
+  } catch {
+    // Keep the body JSON even when the backend is down; external callers parse this.
+    return new Response(JSON.stringify({ error: "bazaar manifest unavailable" }), {
+      status: 502,
+      headers: { "Content-Type": "application/json" },
+    });
+  }
 }

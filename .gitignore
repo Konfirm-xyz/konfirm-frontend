@@ -37,6 +37,14 @@ yarn-error.log*
 # vercel
 .vercel
 
+# Hallmark design-skill working files (screenshots, before/after records,
+# comps) -- design.md is the portable, committed part of its output
+.hallmark/
+
+# Claude Code's own local tooling state (agent worktrees, session scratch) --
+# never project source, never committed
+.claude/
+
 # typescript
 *.tsbuildinfo
 next-env.d.ts

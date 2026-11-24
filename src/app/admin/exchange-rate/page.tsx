@@ -1,7 +1,9 @@
 "use client";
+import LoadingSpinner from "@/components/LoadingSpinner";
 
 import { useEffect, useState } from "react";
-import { API_BASE } from "@/lib/api";
+import { apiFetch } from "@/lib/api";
+import { formatUtcTimestamp } from "@/lib/format";
 
 interface LiveRate {
   rate: string | null;
@@ -21,26 +23,62 @@ function shortAddress(address: string): string {
   return `${address.slice(0, 4)}…${address.slice(-4)}`;
 }
 
-function formatDate(iso: string): string {
-  return new Date(iso).toLocaleString();
-}
+
+const CONVERSIONS_PAGE_SIZE = 50;
 
 export default function AdminExchangeRatePage() {
   const [live, setLive] = useState<LiveRate | null>(null);
   const [conversions, setConversions] = useState<Conversion[]>([]);
   const [loading, setLoading] = useState(true);
+  const [loadingMore, setLoadingMore] = useState(false);
+  const [refreshingRate, setRefreshingRate] = useState(false);
+  const [hasMore, setHasMore] = useState(false);
+  const [error, setError] = useState(false);
+
+  async function loadConversions(offset: number): Promise<Conversion[]> {
+    const result = await apiFetch<Conversion[]>(
+      `/admin/exchange-rate/conversions?limit=${CONVERSIONS_PAGE_SIZE}&offset=${offset}`
+    );
+    return result.ok && result.data ? result.data : [];
+  }
 
   useEffect(() => {
     (async () => {
-      const [liveRes, convRes] = await Promise.all([
-        fetch(`${API_BASE}/admin/exchange-rate/live`, { credentials: "include" }),
-        fetch(`${API_BASE}/admin/exchange-rate/conversions`, { credentials: "include" }),
+      const [liveResult, rows] = await Promise.all([
+        apiFetch<LiveRate>("/admin/exchange-rate/live"),
+        loadConversions(0),
       ]);
-      if (liveRes.ok) setLive(await liveRes.json());
-      if (convRes.ok) setConversions(await convRes.json());
+      if (liveResult.ok && liveResult.data) setLive(liveResult.data);
+      setConversions(rows);
+      // The backend hard-caps each page at CONVERSIONS_PAGE_SIZE rows. A
+      // full page means there may be more rows beyond it; a short page
+      // means we've reached the end.
+      setHasMore(rows.length === CONVERSIONS_PAGE_SIZE);
+      setError(!liveResult.ok);
       setLoading(false);
     })();
   }, []);
+
+  async function handleRefreshRate() {
+    setRefreshingRate(true);
+    try {
+      const liveResult = await apiFetch<LiveRate>("/admin/exchange-rate/live");
+      if (liveResult.ok && liveResult.data) setLive(liveResult.data);
+    } finally {
+      setRefreshingRate(false);
+    }
+  }
+
+  async function handleLoadMore() {
+    setLoadingMore(true);
+    try {
+      const rows = await loadConversions(conversions.length);
+      setConversions((prev) => [...prev, ...rows]);
+      setHasMore(rows.length === CONVERSIONS_PAGE_SIZE);
+    } finally {
+      setLoadingMore(false);
+    }
+  }
 
   return (
     <div>
@@ -52,7 +90,7 @@ export default function AdminExchangeRatePage() {
       </p>
 
       {loading ? (
-        <div className="empty">Loading…</div>
+        <LoadingSpinner />
       ) : (
         <>
           <div className="admin-section">
@@ -63,13 +101,23 @@ export default function AdminExchangeRatePage() {
                   {live?.rate ?? (live?.reachable === false ? "unreachable" : "—")}
                 </div>
                 {live?.reachable === false && <div className="stat-sub">Could not reach Horizon testnet just now</div>}
+                <button
+                  type="button"
+                  onClick={handleRefreshRate}
+                  disabled={refreshingRate}
+                  style={{ marginTop: 12 }}
+                >
+                  {refreshingRate ? "Refreshing…" : "Refresh"}
+                </button>
               </div>
             </div>
           </div>
 
           <div className="admin-section">
             <h2 style={{ fontSize: 15, marginBottom: 12 }}>Applied conversions</h2>
-            {conversions.length === 0 ? (
+            {error ? (
+              <div className="empty">Could not load exchange rate — try again.</div>
+            ) : conversions.length === 0 ? (
               <div className="empty">No non-USDC payments have been converted yet.</div>
             ) : (
               <div className="admin-table-wrap">
@@ -90,12 +138,17 @@ export default function AdminExchangeRatePage() {
                         <td className="mono">{shortAddress(c.payer_address)}</td>
                         <td className="mono">{Number(c.fx_rate_to_usd).toFixed(7)}</td>
                         <td className="mono">${Number(c.amount_usdc).toFixed(2)}</td>
-                        <td>{formatDate(c.created_at)}</td>
+                        <td>{formatUtcTimestamp(c.created_at)}</td>
                       </tr>
                     ))}
                   </tbody>
                 </table>
               </div>
+            )}
+            {hasMore && (
+              <button type="button" onClick={handleLoadMore} disabled={loadingMore} style={{ marginTop: 12 }}>
+                {loadingMore ? "Loading…" : "Load more"}
+              </button>
             )}
           </div>
         </>

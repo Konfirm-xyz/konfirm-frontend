@@ -1,8 +1,8 @@
 # konfirm-frontend
 
-The customer- and merchant-facing pages for [Konfirm](https://github.com/konfirm-HQ/konfirm-backend), a non-custodial payment processor on Stellar.
+The customer- and merchant-facing pages for [Konfirm](https://github.com/Konfirm-xyz/konfirm-backend), a non-custodial payment processor on Stellar.
 
-Sibling repos: [konfirm-backend](https://github.com/konfirm-HQ/konfirm-backend) (the API this app calls, now a pure JSON API with no page-serving of its own) and [konfirm-contracts](https://github.com/konfirm-HQ/konfirm-contracts) (Soroban contracts, not yet in the live request path).
+Sibling repos: [konfirm-backend](https://github.com/Konfirm-xyz/konfirm-backend) (the API this app calls, now a pure JSON API with no page-serving of its own) and [konfirm-contracts](https://github.com/Konfirm-xyz/konfirm-contracts) (Soroban contracts, not yet in the live request path).
 
 ## Pages
 
@@ -17,6 +17,9 @@ Sibling repos: [konfirm-backend](https://github.com/konfirm-HQ/konfirm-backend) 
 | `/forgot-password` | `src/app/forgot-password/page.tsx` | Requests a password-reset email. Gives the same reply whether or not the account exists |
 | `/reset-password` | `src/app/reset-password/page.tsx` | Sets a new password from the emailed link. Reached only with a `?token=` |
 | `/get-test-usdc` | `src/app/get-test-usdc/page.tsx` | Pulls test USDC from the reference anchor via Freighter, then forwards it to whatever wallet you're actually testing checkout with — not part of the merchant product. Needs the backend's `ENABLE_TESTNET_FAUCET=true`; off in production |
+| `/referrals` | `src/app/referrals/page.tsx` | Merchant referral link, promo-rate status, and a table of referred merchants |
+| `/links` | `src/app/links/page.tsx` | All payment links for the signed-in merchant — amount, description, active/inactive status, and creation date |
+| `/docs` | `src/app/docs/page.tsx` | Developer docs for technically-inclined merchants — the link/payment/checkout data model and the on-chain flow. No auth required; read-only, public |
 
 ### Admin
 
@@ -35,6 +38,8 @@ A separate, admin-only section — a fully distinct identity from merchant auth 
 | `/admin/wallets` | `src/app/admin/wallets/page.tsx` | Every address in the system with its roles (merchant, payer, blocked) |
 | `/admin/pay-links` | `src/app/admin/pay-links/page.tsx` | Payment links across every merchant |
 | `/admin/referrals` | `src/app/admin/referrals/page.tsx` | Referral attributions and reward status |
+| `/admin/fees-owed` | `src/app/admin/fees-owed/page.tsx` | Per-merchant fee balances outstanding — amounts owed across all asset types |
+| `/admin/merchant-preview` | `src/app/admin/merchant-preview/page.tsx` | Admin-only impersonation view — renders the merchant dashboard as a specific merchant would see it, reached via a short-lived preview token issued by the Merchants page |
 | `/admin/fee-revenue` | `src/app/admin/fee-revenue/page.tsx` | Fee revenue totals and daily series from confirmed payments |
 | `/admin/exchange-rate` | `src/app/admin/exchange-rate/page.tsx` | Live XLM and EURC rates, and the rates applied to payments |
 | `/admin/treasury` | `src/app/admin/treasury/page.tsx` | Treasury contract state (read-only) |
@@ -67,7 +72,7 @@ npm install
 BACKEND_URL=http://localhost:4001 npm run dev
 ```
 
-Requires [konfirm-backend](https://github.com/konfirm-HQ/konfirm-backend) running separately (see that repo's README) and [Freighter](https://www.freighter.app/), set to Testnet, for exercising checkout, cash-out, or get-test-usdc yourself.
+Requires [konfirm-backend](https://github.com/Konfirm-xyz/konfirm-backend) running separately (see that repo's README) and [Freighter](https://www.freighter.app/), set to Testnet, for exercising checkout, cash-out, or get-test-usdc yourself.
 
 | Variable | Required | Notes |
 |---|---|---|
@@ -79,7 +84,7 @@ Confirmed for real, not just by reading the rewrite config: signed up through `/
 
 ## Design language
 
-Dark by design, not by default — one shared token set (`--ink`, `--surface`, `--accent`, etc.) in `globals.css` rather than the old approach of repeating the same tokens inline on every page. Status copy is written for the person using it: no "session," "reconciler," or "screening" ever reaches a customer-facing screen, and raw errors are filtered through an allowlist (`friendlyMessage()` in each page that needs it) before they're shown — anything not explicitly recognized falls back to a generic message, with the real error going to the console instead.
+Dark by design, 
 
 ## CI
 
@@ -99,3 +104,13 @@ Set `BACKEND_URL` in the Vercel project's environment variables to the deployed 
 ## License
 
 [MIT](LICENSE)
+
+## Handsoff notes
+
+<!-- handsoff-issue-158 -->
+- #158: Remove two dead CSS classes from globals.css: amount-caption, qr-caption
+
+<!-- handsoff-issue-344 -->
+- #344: Treasury's merchant-address field has no Stellar-address validation, unlike compliance's identical-shaped field
+<!-- handsoff-issue-357 -->
+- #357: button.primary and button.secondary (every form's main actions) have no :hover state

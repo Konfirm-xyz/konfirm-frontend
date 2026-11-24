@@ -1,0 +1,20 @@
+{
+  "checkout": {
+    "loading": "Carregando…",
+    "notFound": "Este link de pagamento não foi encontrado.",
+    "scanQr": "Escaneie com sua carteira Stellar",
+    "qrHint": "Lobstr, Vibrant, Beans, xBull e outros",
+    "orDivider": "ou",
+    "connectFreighter": "Conectar Freighter e Pagar",
+    "freighterUnavailable": "O Freighter não está disponível neste navegador. Use o QR code acima ou abra esta página no Chrome ou Firefox com a extensão Freighter instalada.",
+    "feePaidByMerchant": "Pague {amount} da sua carteira. A taxa da plataforma é quitada pelo comerciante.",
+    "successTitle": "Confirmado",
+    "successDetail": "Seu pagamento chegou e foi confirmado na blockchain.",
+    "viewOnExplorer": "Ver em stellar.expert →",
+    "stageConnect": "Conectando sua carteira…",
+    "stagePrep": "Preparando seu pagamento…",
+    "stageSign": "Aprove o pagamento na sua carteira…",
+    "stageSend": "Enviando seu pagamento…",
+    "stageConfirm": "Confirmando…"
+  }
+}

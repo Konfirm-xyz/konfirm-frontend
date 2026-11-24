@@ -3,7 +3,8 @@
 import { Suspense, useState, type FormEvent } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
 import Link from "next/link";
-import { API_BASE } from "@/lib/api";
+import PasswordInput from "@/components/PasswordInput";
+import { apiPost } from "@/lib/api";
 
 function ResetPasswordForm() {
   const router = useRouter();
@@ -12,29 +13,30 @@ function ResetPasswordForm() {
   const [confirm, setConfirm] = useState("");
   const [submitting, setSubmitting] = useState(false);
   const [status, setStatus] = useState("");
+  const [mismatch, setMismatch] = useState(false);
+
+  function checkMismatch() {
+    if (confirm && password !== confirm) {
+      setMismatch(true);
+      setStatus("The two passwords don't match.");
+    } else {
+      setMismatch(false);
+      setStatus("");
+    }
+  }
 
   async function handleSubmit(e: FormEvent) {
     e.preventDefault();
     if (password !== confirm) {
+      setMismatch(true);
       setStatus("The two passwords don't match.");
       return;
     }
+    setMismatch(false);
     setSubmitting(true);
     setStatus("");
     try {
-      const res = await fetch(`${API_BASE}/auth/reset-password`, {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ token, password }),
-      });
-      const body = await res.json().catch(() => ({}));
-      if (!res.ok) {
-        throw new Error(
-          typeof body.message === "string" && res.status === 400
-            ? body.message
-            : "Could not reset your password. Please try again.",
-        );
-      }
+      await apiPost("/auth/reset-password", { token, password });
       router.push("/login");
     } catch (err) {
       setStatus(err instanceof Error ? err.message : "Could not reset your password. Please try again.");
@@ -54,32 +56,44 @@ function ResetPasswordForm() {
     <form onSubmit={handleSubmit}>
       <div className="field">
         <label htmlFor="password">New password</label>
-        <input
+        <PasswordInput
           id="password"
-          type="password"
           autoComplete="new-password"
           minLength={8}
+          maxLength={72}
           required
           value={password}
           onChange={(e) => setPassword(e.target.value)}
+          aria-invalid={mismatch || Boolean(status)}
+          aria-describedby={status ? "form-status" : undefined}
         />
       </div>
       <div className="field">
         <label htmlFor="confirm">Confirm new password</label>
-        <input
+        <PasswordInput
           id="confirm"
-          type="password"
           autoComplete="new-password"
           minLength={8}
+          maxLength={72}
           required
           value={confirm}
           onChange={(e) => setConfirm(e.target.value)}
+          onBlur={checkMismatch}
+          aria-invalid={mismatch || Boolean(status)}
+          aria-describedby={status ? "form-status" : undefined}
         />
       </div>
       <button type="submit" className="primary" disabled={submitting}>
-        Set new password
+        {submitting ? "Setting password…" : "Set new password"}
       </button>
-      <div className={`status${status ? " error" : ""}`}>{status}</div>
+      <div
+        id="form-status"
+        className={`status${status ? " error" : ""}`}
+        role="alert"
+        aria-live={status ? "assertive" : "polite"}
+      >
+        {status}
+      </div>
     </form>
   );
 }

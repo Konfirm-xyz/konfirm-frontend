@@ -1,0 +1,20 @@
+{
+  "checkout": {
+    "loading": "Loading…",
+    "notFound": "This payment link could not be found.",
+    "scanQr": "Scan with your Stellar wallet",
+    "qrHint": "Lobstr, Vibrant, Beans, xBull, and others",
+    "orDivider": "or",
+    "connectFreighter": "Connect Freighter & Pay",
+    "freighterUnavailable": "Freighter is not available in this browser. Use the QR code above, or open this page in Chrome or Firefox with the Freighter extension installed.",
+    "feePaidByMerchant": "Pay {amount} from your wallet. The platform fee is settled by the merchant.",
+    "successTitle": "Konfirmed",
+    "successDetail": "Your payment landed and was konfirmed on-chain.",
+    "viewOnExplorer": "View on stellar.expert →",
+    "stageConnect": "Connecting your wallet…",
+    "stagePrep": "Preparing your payment…",
+    "stageSign": "Approve the payment in your wallet…",
+    "stageSend": "Sending your payment…",
+    "stageConfirm": "Konfirming…"
+  }
+}

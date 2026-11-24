@@ -1,13 +1,39 @@
 "use client";
 
-import { Suspense, useState, type FormEvent } from "react";
+import { Suspense, useEffect, useState, type FormEvent } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
 import Link from "next/link";
-import { API_BASE } from "@/lib/api";
+import PasswordInput from "@/components/PasswordInput";
+import { apiFetch, apiPost } from "@/lib/api";
+import { reportError } from "@/lib/report-error";
 
 function SignupForm() {
   const router = useRouter();
   const searchParams = useSearchParams();
+  const [checkingAuth, setCheckingAuth] = useState(true);
+
+  // Already-authenticated visitors shouldn't see the signup form — bounce
+  // them straight to the app instead.
+  useEffect(() => {
+    let cancelled = false;
+    (async () => {
+      try {
+        const res = await apiFetch("/auth/me");
+        if (!cancelled && res.ok) {
+          router.replace("/activity");
+          return;
+        }
+      } catch {
+        // Ignore — just means we stay on the signup page.
+      }
+      if (!cancelled) setCheckingAuth(false);
+    })();
+    return () => {
+      cancelled = true;
+    };
+  }, [router]);
+
+  if (checkingAuth) return null;
   // Present only when someone arrived via another merchant's referral
   // link (see /referrals) — an invalid/expired code is rejected silently
   // server-side, not surfaced as an error here, since it should never
@@ -22,20 +48,20 @@ function SignupForm() {
 
   async function handleSubmit(e: FormEvent) {
     e.preventDefault();
+    const addressTrimmed = address.trim();
+    if (!/^G[A-Z2-7]{55}$/.test(addressTrimmed)) {
+      setStatus("Enter a valid Stellar G... address.");
+      return;
+    }
     setSubmitting(true);
     setStatus("");
     try {
-      const res = await fetch(`${API_BASE}/auth/signup`, {
-        method: "POST",
-        credentials: "include",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          name,
-          email,
-          password,
-          stellar_base_address: address.trim(),
-          ...(referralCode ? { referral_code: referralCode } : {}),
-        }),
+      const res = await apiPost("/auth/signup", {
+        name,
+        email,
+        password,
+        stellar_base_address: addressTrimmed,
+        ...(referralCode ? { referral_code: referralCode } : {}),
       });
       const body = await res.json().catch(() => ({}));
       if (!res.ok) {
@@ -45,11 +71,13 @@ function SignupForm() {
       }
       router.push("/activity");
     } catch (err) {
-      console.error("[konfirm signup]", err);
+      reportError("signup", err);
       setStatus(err instanceof Error ? err.message : "Could not create your account. Please try again.");
       setSubmitting(false);
     }
   }
+
+  if (checkingAuth) return null;
 
   return (
     <div className="page-center">
@@ -70,9 +98,13 @@ function SignupForm() {
               id="name"
               type="text"
               autoComplete="organization"
+              autoFocus
               required
+              maxLength={120}
               value={name}
               onChange={(e) => setName(e.target.value)}
+              aria-invalid={Boolean(status)}
+              aria-describedby={status ? "form-status" : undefined}
             />
           </div>
           <div className="field">
@@ -84,20 +116,24 @@ function SignupForm() {
               required
               value={email}
               onChange={(e) => setEmail(e.target.value)}
+              aria-invalid={Boolean(status)}
+              aria-describedby={status ? "form-status" : undefined}
             />
           </div>
           <div className="field">
             <label htmlFor="password">Password</label>
-            <input
+            <PasswordInput
               id="password"
-              type="password"
               autoComplete="new-password"
               minLength={8}
+              maxLength={72}
               required
               value={password}
               onChange={(e) => setPassword(e.target.value)}
+              aria-invalid={Boolean(status)}
+              aria-describedby={status ? "form-status" : undefined}
             />
-            <div className="hint">At least 8 characters.</div>
+            <div className="hint">At least 8 characters (72 max).</div>
           </div>
           <div className="field">
             <label htmlFor="address">Your Stellar payout address</label>
@@ -105,16 +141,26 @@ function SignupForm() {
               id="address"
               type="text"
               placeholder="G..."
+              autoComplete="off"
               required
               value={address}
               onChange={(e) => setAddress(e.target.value)}
+              aria-invalid={Boolean(status)}
+              aria-describedby={status ? "form-status" : undefined}
             />
             <div className="hint">This is where your payments land — Konfirm never holds your funds.</div>
           </div>
           <button type="submit" className="primary" disabled={submitting}>
-            Create account
+            {submitting ? "Creating account…" : "Create account"}
           </button>
-          <div className={`status${status ? " error" : ""}`}>{status}</div>
+          <div
+            id="form-status"
+            className={`status${status ? " error" : ""}`}
+            role="alert"
+            aria-live={status ? "assertive" : "polite"}
+          >
+            {status}
+          </div>
         </form>
         <div className="footer">
           Already have an account? <Link href="/login">Log in</Link>
@@ -125,7 +171,7 @@ function SignupForm() {
 }
 
 // useSearchParams() requires a Suspense boundary in the app router — same
-// pattern already used in src/app/activity/page.tsx for the same reason.
+// pattern already used in src/app/reset-password/page.tsx for the same reason.
 export default function SignupPage() {
   return (
     <Suspense fallback={null}>
