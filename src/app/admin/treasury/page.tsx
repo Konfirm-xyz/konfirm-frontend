@@ -135,6 +135,12 @@ export default function AdminTreasuryPage() {
       setMessage({ text: "Select which signer you're acting as first.", error: true });
       return;
     }
+    if (
+      !window.confirm(
+        `Propose a settlement of ${amount} USDC to ${merchantAddress} as signer ${actingAs}?\n\nThis only creates a pending proposal. No funds move until enough signers approve and it is executed.`,
+      )
+    )
+      return;
     setProposing(true);
     setMessage(null);
     try {
@@ -167,6 +173,12 @@ export default function AdminTreasuryPage() {
       setMessage({ text: "Select which signer you're acting as first.", error: true });
       return;
     }
+    if (
+      !window.confirm(
+        `Approve settlement #${row.onchain_settlement_id} (${formatUsdc(row.amount)} USDC to ${row.merchant_address}) as signer ${actingAs}?`,
+      )
+    )
+      return;
     setBusyAction(`${row.onchain_settlement_id}-approve`);
     setMessage(null);
     try {
@@ -195,6 +207,12 @@ export default function AdminTreasuryPage() {
       setMessage({ text: "Select which signer you're acting as first.", error: true });
       return;
     }
+    if (
+      !window.confirm(
+        `Execute settlement #${row.onchain_settlement_id}? This sends ${formatUsdc(row.amount)} USDC from the treasury to ${row.merchant_address} on-chain and cannot be reversed.`,
+      )
+    )
+      return;
     setBusyAction(`${row.onchain_settlement_id}-execute`);
     setMessage(null);
     try {
@@ -222,206 +240,148 @@ export default function AdminTreasuryPage() {
   if (!status)
     return (
       <div className="empty">
-        Could not load treasury status.{" "}
-        <button type="button" onClick={load}>
-          Try again
-        </button>
+        Couldn't load treasury status. Check the backend is running and try again.
       </div>
     );
 
   return (
     <div>
       <h1>Treasury</h1>
-      <p className="sub">
-        The treasury Soroban contract, read live via its USDC balance. It is deployed and multi-sig-controlled, and now
-        receives checkout&apos;s USDC-denominated fee revenue via a periodic sweep — not a direct call at checkout time (a
-        Soroban invocation must be the only operation in its transaction, so the fee leg is a plain classic payment into a
-        separate collection account first).
-      </p>
 
-      {status.wired_into_checkout && (
-        <div className="status" style={{ marginBottom: 20 }}>
-          USDC only — XLM- and EURC-denominated fee revenue is not swept into this contract, since it was initialized with
-          a single token and can&apos;t custody other assets.
-        </div>
-      )}
-
-      <div className="admin-section">
-        <div className="stat-grid">
-          <div className="stat-card">
-            <div className="stat-label">USDC balance</div>
-            <div className={`stat-value ${status.reachable ? "" : "stat-bad"}`}>
-              {status.reachable ? `$${Number(status.usdc_balance).toFixed(2)}` : "unreachable"}
-            </div>
-          </div>
-          <div className="stat-card">
-            <div className="stat-label">Signer threshold</div>
-            <div className="stat-value">{status.threshold}</div>
-          </div>
-          <div className="stat-card">
-            <div className="stat-label">Signers</div>
-            <div className="stat-value">{status.signers.length}</div>
-          </div>
-        </div>
+      <div className="admin-card">
+        <h2 id="treasury-contract-heading">Contract</h2>
+        <table className="admin-table" aria-labelledby="treasury-contract-heading">
+          <thead>
+            <tr>
+              <th>Address</th>
+            </tr>
+          </thead>
+          <tbody>
+            <tr>
+              <td>
+                <a
+                  href={explorerUrl(status.contract_id, "contract", status.network)}
+                  target="_blank"
+                  rel="noreferrer"
+                >
+                  {status.contract_id}
+                </a>
+              </td>
+            </tr>
+          </tbody>
+        </table>
       </div>
 
-      <div className="admin-section">
-        <h2>Contract</h2>
-        <div className="admin-table-wrap">
-          <table className="admin-table">
-            <thead>
-              <tr>
-                <th>Address</th>
-              </tr>
-            </thead>
-            <tbody>
-              <tr>
-                <td className="mono">
-                  <a href={explorerUrl(status.contract_id, status.network)} target="_blank" rel="noreferrer">
-                    {status.contract_id}
+      <div className="admin-card">
+        <h2 id="treasury-signers-heading">Signers ({status.threshold})</h2>
+        <table className="admin-table" aria-labelledby="treasury-signers-heading">
+          <thead>
+            <tr>
+              <th>Address</th>
+            </tr>
+          </thead>
+          <tbody>
+            {status.signers.map((signer) => (
+              <tr key={signer}>
+                <td>
+                  <a href={explorerUrl(signer, "account", status.network)} target="_blank" rel="noreferrer">
+                    {signer}
                   </a>
                 </td>
               </tr>
-            </tbody>
-          </table>
-        </div>
+            ))}
+          </tbody>
+        </table>
       </div>
 
-      <div className="admin-section">
-        <h2>Signers ({status.signers.length})</h2>
-        <div className="admin-table-wrap">
-          <table className="admin-table">
+      <div className="admin-card">
+        <h2>Status</h2>
+        <p>
+          USDC balance: {status.usdc_balance ?? "—"} · Reachable: {status.reachable ? "yes" : "no"} · Wired into
+          checkout: {status.wired_into_checkout ? "yes" : "no"}
+        </p>
+      </div>
+
+      <div className="admin-card">
+        <h2>Propose settlement</h2>
+        <form onSubmit={handlePropose}>
+          <label>
+            Acting as
+            <input
+              value={actingAs}
+              onChange={(e) => setActingAs(e.target.value)}
+              placeholder="G…"
+              required
+            />
+          </label>
+          <label>
+            Merchant address
+            <input
+              value={merchantAddress}
+              onChange={(e) => setMerchantAddress(e.target.value)}
+              placeholder="G…"
+              required
+            />
+          </label>
+          <label>
+            Amount (USDC)
+            <input value={amount} onChange={(e) => setAmount(e.target.value)} placeholder="0.00" required />
+          </label>
+          <button type="submit" disabled={proposing}>
+            {proposing ? "Proposing…" : "Propose"}
+          </button>
+        </form>
+        {message && <p className={message.error ? "error" : ""}>{message.text}</p>}
+      </div>
+
+      <div className="admin-card">
+        <h2 id="treasury-settlements-heading">Settlements</h2>
+        {loadingSettlements ? (
+          <div className="empty">Loading…</div>
+        ) : settlements.length === 0 ? (
+          <div className="empty">No settlements yet.</div>
+        ) : (
+          <table className="admin-table" aria-labelledby="treasury-settlements-heading">
             <thead>
               <tr>
-                <th>Address</th>
+                <th>ID</th>
+                <th>Merchant</th>
+                <th>Amount</th>
+                <th>Approvals</th>
+                <th>Status</th>
+                <th>Created</th>
+                <th>Actions</th>
               </tr>
             </thead>
             <tbody>
-              {status.signers.map((s) => (
-                <tr key={s}>
-                  <td className="mono" title={s}>{shortAddress(s)}</td>
+              {settlements.map((row) => (
+                <tr key={row.onchain_settlement_id}>
+                  <td>{row.onchain_settlement_id}</td>
+                  <td title={row.merchant_address}>{shortAddress(row.merchant_address)}</td>
+                  <td>{formatUsdc(row.amount)}</td>
+                  <td>{row.approvals_count}</td>
+                  <td>{row.status}</td>
+                  <td>{formatDate(row.created_at)}</td>
+                  <td>
+                    <button
+                      type="button"
+                      onClick={() => handleApprove(row)}
+                      disabled={busyAction !== null}
+                    >
+                      {busyAction === `${row.onchain_settlement_id}-approve` ? "Approving…" : "Approve"}
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => handleExecute(row)}
+                      disabled={busyAction !== null}
+                    >
+                      {busyAction === `${row.onchain_settlement_id}-execute` ? "Executing…" : "Execute"}
+                    </button>
+                  </td>
                 </tr>
               ))}
             </tbody>
           </table>
-        </div>
-      </div>
-
-      <div className="admin-section">
-        <h2>Settlements</h2>
-        <p className="sub">
-          propose_settlement/approve_settlement/execute_settlement all require a real signer&apos;s own key
-          (<code>require_signer</code>) — Konfirm never holds or relays it. Pick which signer you&apos;re connected as in
-          Freighter below, then propose, approve, or execute: each builds an unsigned transaction here, asks Freighter to
-          sign it, and submits what comes back.
-        </p>
-
-        <form className="admin-inline-form" style={{ marginBottom: 16 }} onSubmit={(e) => e.preventDefault()}>
-          <div className="field">
-            <label htmlFor="acting-as">Acting as (connected in Freighter)</label>
-            {status.signers.length > 0 ? (
-              <select id="acting-as" value={actingAs} onChange={(e) => setActingAs(e.target.value)}>
-                <option value="">Select a signer…</option>
-                {status.signers.map((s) => (
-                  <option key={s} value={s}>
-                    {shortAddress(s)} — {s}
-                  </option>
-                ))}
-              </select>
-            ) : (
-              <input
-                id="acting-as"
-                type="text"
-                placeholder="G..."
-                autoComplete="off"
-                value={actingAs}
-                onChange={(e) => setActingAs(e.target.value)}
-              />
-            )}
-          </div>
-        </form>
-
-        <form className="admin-inline-form" style={{ marginBottom: 16 }} onSubmit={handlePropose}>
-          <div className="field">
-            <label htmlFor="merchant-address">Merchant address</label>
-            <input
-              id="merchant-address"
-              type="text"
-              placeholder="G..."
-              autoComplete="off"
-              value={merchantAddress}
-              onChange={(e) => setMerchantAddress(e.target.value)}
-            />
-          </div>
-          <div className="field">
-            <label htmlFor="amount">Amount (USDC)</label>
-            <input
-              id="amount"
-              type="text"
-              placeholder="0.0000000"
-              autoComplete="off"
-              value={amount}
-              onChange={(e) => setAmount(e.target.value)}
-            />
-          </div>
-          <button type="submit" className="primary" disabled={proposing}>
-            Propose settlement
-          </button>
-        </form>
-
-        {message && <div className={`status${message.error ? " error" : ""}`}>{message.text}</div>}
-
-        {loadingSettlements ? (
-          <div className="empty">Loading…</div>
-        ) : settlements.length === 0 ? (
-          <div className="empty">No settlements tracked yet. Propose one above.</div>
-        ) : (
-          <div className="admin-table-wrap">
-            <table className="admin-table">
-              <thead>
-                <tr>
-                  <th>ID</th>
-                  <th>Merchant</th>
-                  <th>Amount</th>
-                  <th>Approvals</th>
-                  <th>Status</th>
-                  <th>Updated</th>
-                  <th></th>
-                </tr>
-              </thead>
-              <tbody>
-                {settlements.map((row) => {
-                  const approveBusy = busyAction === `${row.onchain_settlement_id}-approve`;
-                  const executeBusy = busyAction === `${row.onchain_settlement_id}-execute`;
-                  const anyBusy = busyAction !== null;
-                  return (
-                    <tr key={row.onchain_settlement_id}>
-                      <td>#{row.onchain_settlement_id}</td>
-                      <td className="mono">{shortAddress(row.merchant_address)}</td>
-                      <td>${formatUsdc(row.amount)}</td>
-                      <td>
-                        {row.approvals_count} / {status.threshold}
-                      </td>
-                      <td>{row.status}</td>
-                      <td>{formatDate(row.updated_at)}</td>
-                      <td>
-                        {row.status === "Pending" && (
-                          <div style={{ display: "flex", gap: 8 }}>
-                            <button type="button" disabled={anyBusy} onClick={() => handleApprove(row)}>
-                              {approveBusy ? "Approving…" : "Approve"}
-                            </button>
-                            <button type="button" disabled={anyBusy} onClick={() => handleExecute(row)}>
-                              {executeBusy ? "Executing…" : "Execute"}
-                            </button>
-                          </div>
-                        )}
-                      </td>
-                    </tr>
-                  );
-                })}
-              </tbody>
-            </table>
-          </div>
         )}
       </div>
     </div>

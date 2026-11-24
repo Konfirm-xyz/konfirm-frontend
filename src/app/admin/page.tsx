@@ -195,10 +195,40 @@ export default function AdminPage() {
       <main className="flex-1 p-8 space-y-8">
         <h1 className="text-2xl font-semibold">Admin Overview</h1>
 
-        <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
-          <StatCard label="Users" value={stats?.total_users ?? 0} />
-          <StatCard label="Posts" value={stats?.total_posts ?? 0} />
-          <StatCard label="Comments" value={stats?.total_comments ?? 0} />
+      <div className="admin-section">
+        <div className="stat-grid">
+          <div className="stat-card">
+            <div className="stat-label">Merchants</div>
+            <div className="stat-value">{stats.merchants.total.toLocaleString()}</div>
+          </div>
+          <div className="stat-card">
+            <div className="stat-label">Active</div>
+            <div className="stat-value stat-good">{stats.merchants.active.toLocaleString()}</div>
+          </div>
+          <div className="stat-card">
+            <div className="stat-label">Suspended</div>
+            <div className="stat-value stat-bad">{stats.merchants.suspended.toLocaleString()}</div>
+          </div>
+          <div className="stat-card">
+            <div className="stat-label">Payments today</div>
+            <div className="stat-value">{stats.payments.today_count.toLocaleString()}</div>
+            <div className="stat-sub">{formatAmount(stats.payments.today_net_usdc, "USDC")} net</div>
+          </div>
+          <div className="stat-card">
+            <div className="stat-label">Blocked addresses</div>
+            <div className="stat-value">{stats.compliance.blocked_count.toLocaleString()}</div>
+          </div>
+          <div className="stat-card">
+            <div className="stat-label">Open cash-outs</div>
+            <div className="stat-value">{stats.withdrawals.open_count.toLocaleString()}</div>
+            <div className="stat-sub">not yet completed/errored per the anchor</div>
+          </div>
+          <div className="stat-card">
+            <div className="stat-label">Reconciler last moved</div>
+            <div className="stat-value" style={{ fontSize: 15 }}>
+              {stats.reconciler.updated_at ? formatDate(stats.reconciler.updated_at) : "—"}
+            </div>
+          </div>
         </div>
 
         <section className="space-y-2">
