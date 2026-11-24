@@ -77,6 +77,7 @@ Requires [konfirm-backend](https://github.com/Konfirm-xyz/konfirm-backend) runni
 | Variable | Required | Notes |
 |---|---|---|
 | `BACKEND_URL` | No | Defaults to `http://localhost:4001`. Only read server-side by the rewrite — never exposed to the browser |
+| `NEXT_PUBLIC_BASE_URL` | No | Defaults to `https://konfirm.xyz`. Sets the metadata / Open Graph base URL used for shared-link previews (`metadataBase` in `src/app/layout.tsx`) |
 
 ## Verifying the proxy
 
