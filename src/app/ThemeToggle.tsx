@@ -19,7 +19,15 @@ function applyTheme(theme: "light" | "dark") {
 // the button's icon matches the real current theme with no flash/flicker.
 function currentTheme(): "light" | "dark" {
   if (typeof document === "undefined") return "light";
-  return document.documentElement.getAttribute("data-theme") === "dark" ? "dark" : "light";
+  const saved = document.documentElement.getAttribute("data-theme");
+  if (saved === "light" || saved === "dark") return saved;
+  // No saved preference: the page is rendered from the CSS media query, so
+  // the icon must follow the OS preference as well.
+  return typeof window !== "undefined" &&
+    typeof window.matchMedia === "function" &&
+    window.matchMedia("(prefers-color-scheme: dark)").matches
+    ? "dark"
+    : "light";
 }
 
 export default function ThemeToggle() {
