@@ -3,7 +3,6 @@ import LoadingSpinner from "@/components/LoadingSpinner";
 
 import { useEffect, useRef, useState } from "react";
 import { apiFetch, apiPatch } from "@/lib/api";
-import { formatUtcTimestamp } from "@/lib/format";
 
 type ListingStatus = "pending" | "approved" | "rejected";
 
@@ -24,7 +23,7 @@ interface Listing {
 const STATUS_OPTIONS: ListingStatus[] = ["pending", "approved", "rejected"];
 
 function formatDate(iso: string | null): string {
-  return iso ? formatUtcTimestamp(iso) : "—";
+  return iso ? new Date(iso).toISOString().replace("T", " ").slice(0, 19) + " UTC" : "—";
 }
 
 export default function AdminBazaarPage() {
@@ -108,11 +107,22 @@ export default function AdminBazaarPage() {
       </p>
 
       <div className="filter-pills">
-        <button type="button" className={`filter-pill ${filter === "" ? "active" : ""}`} onClick={() => setFilter("")}>
+        <button
+          type="button"
+          className={`filter-pill ${filter === "" ? "active" : ""}`}
+          aria-pressed={filter === ""}
+          onClick={() => setFilter("")}
+        >
           All
         </button>
         {STATUS_OPTIONS.map((s) => (
-          <button key={s} type="button" className={`filter-pill ${filter === s ? "active" : ""}`} onClick={() => setFilter(s)}>
+          <button
+            key={s}
+            type="button"
+            className={`filter-pill ${filter === s ? "active" : ""}`}
+            aria-pressed={filter === s}
+            onClick={() => setFilter(s)}
+          >
             {s}
           </button>
         ))}
