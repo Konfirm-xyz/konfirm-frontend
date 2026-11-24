@@ -4,11 +4,12 @@ import { useCallback, useEffect, useState } from "react";
 import { TransactionBuilder, Operation } from "@stellar/stellar-sdk";
 import { API_BASE } from "@/lib/api";
 import { reportError } from "@/lib/report-error";
+import { formatUtcTimestamp } from "@/lib/format";
 
-// Merchant-side fee settlement (docs/design/qr-fee-collection.md, Option B).
-// Shows what the merchant owes, then clears it in one transaction they sign in
-// Freighter. The transaction moves money from the merchant's own account to the
-// fee account, and Konfirm only submits what the merchant signed.
+// Merchant-side fee settlement. Shows what the merchant owes, then clears it in
+// one transaction they sign in Freighter. The transaction moves money from the
+// merchant's own account to the fee account, and Konfirm only submits what the
+// merchant signed.
 
 interface OwedTotal {
   asset_code: string;
@@ -69,6 +70,7 @@ export default function FeeSettlement({ address }: { address: string }) {
   const [busy, setBusy] = useState(false);
   const [status, setStatus] = useState<{ text: string; error: boolean } | null>(null);
   const [freighterAvailable, setFreighterAvailable] = useState<boolean | null>(null);
+  const [settledAt, setSettledAt] = useState<string | null>(null);
 
   useEffect(() => {
     import("@stellar/freighter-api").then(({ default: freighterApi }) => freighterApi.isConnected()).then((res) => {
@@ -128,6 +130,7 @@ export default function FeeSettlement({ address }: { address: string }) {
       const result = await submitted.json().catch(() => ({}));
       if (!submitted.ok) throw Object.assign(new Error(describeFailure(result)), { handled: true });
 
+      setSettledAt(formatUtcTimestamp(new Date()));
       setStatus({ text: "Fees settled. Thank you.", error: false });
       await load().catch((refreshErr) => {
         console.warn("[konfirm fees] totals refresh failed after successful settlement", refreshErr);
@@ -168,6 +171,7 @@ export default function FeeSettlement({ address }: { address: string }) {
             Settle fees
           </button>
           {status && <div className={`status${status.error ? " error" : ""}`}>{status.text}</div>}
+          {settledAt && <div className="sub">Settled at {settledAt}</div>}
         </>
       )}
     </div>

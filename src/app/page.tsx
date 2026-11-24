@@ -348,6 +348,7 @@ export default async function RootPage() {
             <Link href="/signup">Get started</Link>
             <Link href="/docs">Docs</Link>
             <Link href="/get-test-usdc">Testnet USDC</Link>
+            <Link href="/referral-promo">Referral promo</Link>
           </nav>
           <p className="letter-close__legal">
             &ldquo;Stellar&rdquo; is a trademark of the Stellar Development Foundation. All rights reserved. Konfirm

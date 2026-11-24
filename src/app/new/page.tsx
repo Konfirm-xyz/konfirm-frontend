@@ -24,6 +24,33 @@ interface PaymentDraft {
   description: string;
 }
 
+function readDraft(): PaymentDraft | null {
+  try {
+    const raw = sessionStorage.getItem(DRAFT_KEY);
+    if (!raw) return null;
+    const parsed = JSON.parse(raw) as Partial<PaymentDraft>;
+    const currency: Currency =
+      parsed.currency === "USDC" || parsed.currency === "EURC" || parsed.currency === "XLM"
+        ? parsed.currency
+        : "XLM";
+    return {
+      amount: typeof parsed.amount === "string" ? parsed.amount : "",
+      currency,
+      description: typeof parsed.description === "string" ? parsed.description : "",
+    };
+  } catch {
+    return null;
+  }
+}
+
+function writeDraft(draft: PaymentDraft) {
+  try {
+    sessionStorage.setItem(DRAFT_KEY, JSON.stringify(draft));
+  } catch {
+    // sessionStorage unavailable — ignore
+  }
+}
+
 export default function NewPaymentPage() {
   const router = useRouter();
   const { data: merchant, resolved } = useRequireAuth<Merchant>({
@@ -81,6 +108,15 @@ export default function NewPaymentPage() {
     return () => clearTimeout(timer);
   }, [amount, currency, description]);
 
+  // Restore any in-progress draft saved before a session-expiry redirect.
+  useEffect(() => {
+    const draft = readDraft();
+    if (!draft) return;
+    setAmount(draft.amount);
+    setCurrency(draft.currency);
+    setDescription(draft.description);
+  }, []);
+
   async function handleSubmit(e: React.FormEvent<HTMLFormElement>) {
     e.preventDefault();
     const amountRaw = amount.trim();
@@ -115,7 +151,10 @@ export default function NewPaymentPage() {
       });
       if (!result.ok) {
         if (result.status === 401) {
-          router.push("/login");
+          // Preserve the in-progress form so nothing is lost across re-login.
+          writeDraft({ amount, currency, description });
+          setStatus("Your session has expired — please log in again. Your draft has been saved.");
+          router.push("/login?returnTo=%2Fnew");
           return;
         }
         const bodyMessage = (result.body as { message?: unknown } | null)?.message;
@@ -148,12 +187,34 @@ export default function NewPaymentPage() {
   }
 
   async function handleCopy() {
-    if (!navigator.clipboard?.writeText) {
-      setStatus("Couldn't copy — select and copy the link manually.");
-      return;
+    if (navigator.clipboard?.writeText) {
+      try {
+        await navigator.clipboard.writeText(linkUrl);
+        setStatus("");
+        setCopyLabel("Copied");
+        setCopyAnnouncement("Link copied to clipboard.");
+        setTimeout(() => {
+          setCopyLabel("Copy");
+          setCopyAnnouncement("");
+        }, COPY_FEEDBACK_MS);
+        return;
+      } catch (err) {
+        console.error("[konfirm new-payment] clipboard", err);
+      }
     }
+
+    // Fallback for browsers/contexts without the async Clipboard API.
     try {
-      await navigator.clipboard.writeText(linkUrl);
+      const textarea = document.createElement("textarea");
+      textarea.value = linkUrl;
+      textarea.setAttribute("readonly", "");
+      textarea.style.position = "fixed";
+      textarea.style.opacity = "0";
+      document.body.appendChild(textarea);
+      textarea.select();
+      const ok = document.execCommand("copy");
+      document.body.removeChild(textarea);
+      if (!ok) throw new Error("execCommand copy failed");
       setStatus("");
       setCopyLabel("Copied");
       setCopyAnnouncement("Link copied to clipboard.");
@@ -162,7 +223,7 @@ export default function NewPaymentPage() {
         setCopyAnnouncement("");
       }, COPY_FEEDBACK_MS);
     } catch (err) {
-      console.error("[konfirm new-payment] clipboard", err);
+      console.error("[konfirm new-payment] clipboard fallback", err);
       setStatus("Couldn't copy — select and copy the link manually.");
     }
   }
@@ -244,40 +305,52 @@ export default function NewPaymentPage() {
                 value={description}
                 onChange={(e) => setDescription(e.target.value)}
               />
-              <div className="chips">
-                {["Gift", "Payment", "Service"].map((fill) => (
-                  <button key={fill} type="button" className="chip" onClick={() => setDescription(fill)}>
-                    {fill}
-                  </button>
-                ))}
-              </div>
             </div>
 
-            <button type="submit" className="primary" disabled={submitting}>
+            <button className="btn" type="submit" disabled={submitting}>
               {submitting ? "Creating…" : "Create payment link"}
             </button>
-            <div id="form-status" className={`status${status ? " error" : ""}`}>{status}</div>
+            {status && (
+              <p id="form-status" className="status" role="alert">
+                {status}
+              </p>
+            )}
           </form>
         ) : (
-          <div className="success-box">
-            <div className="tick">✓</div>
-            <h1 className="success-title">Ready to send</h1>
-            <div className="success-detail">Share this link, or open it yourself to test it now.</div>
+          <div>
+            <h1>Link ready</h1>
+            <p className="sub">Share this link to get paid.</p>
             <div className="link-box">
-              <span>{linkUrl}</span>
-              <button type="button" onClick={handleCopy}>
+              <input type="text" readOnly value={linkUrl} onFocus={(e) => e.target.select()} aria-label="Payment link" />
+              <button className="btn" type="button" onClick={handleCopy}>
                 {copyLabel}
               </button>
             </div>
-            <div role="status" aria-live="polite" aria-atomic="true" style={{ position: "absolute", width: 1, height: 1, overflow: "hidden", clip: "rect(0,0,0,0)", whiteSpace: "nowrap" }}>
+            <p className="visually-hidden" role="status" aria-live="polite">
               {copyAnnouncement}
+            </p>
+            <div className="actions">
+              <button
+                type="button"
+                className="primary"
+                onClick={() => window.open(linkUrl, "_blank", "noopener,noreferrer")}
+              >
+                Open checkout
+              </button>
+              <button type="button" className="secondary" onClick={handleAnother}>
+                Create another
+              </button>
             </div>
-            <div className={`status${status ? " error" : ""}`}>{status}</div>
-            <button type="button" className="primary" onClick={() => window.location.assign(linkUrl)}>
-              Open checkout
+            {status && (
+              <p className="status" role="alert">
+                {status}
+              </p>
+            )}
+            <button className="btn secondary" type="button" onClick={handleAnother}>
+              Create another
             </button>
-            <button type="button" className="secondary" onClick={handleAnother}>
-              Request another payment
+            <button className="btn secondary" type="button" onClick={handleAnother}>
+              Create another
             </button>
             <Link className="secondary" href="/links">
               View my payments

@@ -1,26 +1,33 @@
 "use client";
 import LoadingSpinner from "@/components/LoadingSpinner";
 
-import { useEffect, useState, type FormEvent } from "react";
+import { useEffect, useState } from "react";
 import { apiFetch, apiPost } from "@/lib/api";
 import { reportError } from "@/lib/report-error";
 import { formatUtcTimestamp } from "@/lib/format";
 
+type RiskTier = "unverified" | "standard" | "established" | "enterprise";
+
 interface BlockedAddress {
   id: string;
   stellar_address: string;
-  reason: string | null;
-  created_at: string;
-  blocked_by_name: string | null;
+  reason: string;
+  blocked_at: string;
 }
 
+const REASON_MAX_LENGTH = 500;
+
+function formatDate(iso: string): string {
+  return formatUtcTimestamp(iso);
+}
+
+function shortAddress(address: string): string {
+  return `${address.slice(0, 4)}…${address.slice(-4)}`;
+}
 
 export default function AdminCompliancePage() {
   const [blocked, setBlocked] = useState<BlockedAddress[]>([]);
   const [loading, setLoading] = useState(true);
-  const [address, setAddress] = useState("");
-  const [reason, setReason] = useState("");
-  const [submitting, setSubmitting] = useState(false);
   const [pendingId, setPendingId] = useState<string | null>(null);
   const [error, setError] = useState("");
   const [loadError, setLoadError] = useState(false);
@@ -42,38 +49,29 @@ export default function AdminCompliancePage() {
     })();
   }, []);
 
-  async function handleBlock(e: FormEvent) {
-    e.preventDefault();
-    if (!/^G[A-Z2-7]{55}$/.test(address.trim())) {
-      setError("Enter a valid Stellar G... address.");
-      return;
-    }
-    setSubmitting(true);
-    setError("");
-    const result = await apiPost("/admin/compliance/blocked-addresses", {
-      stellar_address: address.trim(),
-      reason: reason || undefined,
-    });
-    if (result.ok) {
-      setAddress("");
-      setReason("");
-      await load();
-    } else {
-      reportError("admin compliance block address failed", result.message);
-      setError(result.message || "Could not block this address.");
-    }
-    setSubmitting(false);
-  }
-
   async function handleUnblock(entry: BlockedAddress) {
     if (!window.confirm(`Unblock ${entry.stellar_address}?`)) return;
+
+    const reason = window.prompt(
+      `Reason (optional, shown in the activity log, max ${REASON_MAX_LENGTH} chars):`,
+      ""
+    );
+    if (reason === null) return;
+    if (reason.trim().length > REASON_MAX_LENGTH) {
+      setError(`Reason must be ${REASON_MAX_LENGTH} characters or fewer (was ${reason.trim().length}).`);
+      return;
+    }
+
     setPendingId(entry.id);
     setError("");
-    const result = await apiFetch(`/admin/compliance/blocked-addresses/${entry.id}`, { method: "DELETE" });
+    const result = await apiFetch(`/admin/compliance/blocked-addresses/${entry.id}`, {
+      method: "DELETE",
+      body: JSON.stringify({ reason: reason.trim() || undefined }),
+    });
     if (result.ok) {
       await load();
     } else {
-      reportError("admin compliance unblock address failed", result.message);
+      reportError("admin.compliance.unblock", { entryId: entry.id, message: result.message });
       setError(result.message || "Could not unblock this address.");
     }
     setPendingId(null);
@@ -82,39 +80,6 @@ export default function AdminCompliancePage() {
   return (
     <div>
       <h1>Compliance</h1>
-      <p className="sub">
-        A locally blocked address is rejected instantly on the Freighter checkout path — it never reaches the on-chain compliance
-        check. The SEP-7/QR checkout path has no payer address at request time, so it isn&apos;t covered by this list either way.
-      </p>
-
-      <form onSubmit={handleBlock} className="admin-inline-form">
-        <div className="field">
-          <label htmlFor="address">Stellar address</label>
-          <input
-            id="address"
-            type="text"
-            placeholder="G..."
-            autoComplete="off"
-            spellCheck={false}
-            value={address}
-            onChange={(e) => setAddress(e.target.value)}
-          />
-        </div>
-        <div className="field">
-          <label htmlFor="reason">Reason (optional)</label>
-          <input
-            id="reason"
-            type="text"
-            maxLength={500}
-            value={reason}
-            onChange={(e) => setReason(e.target.value)}
-          />
-        </div>
-        <button type="submit" className="primary" disabled={submitting}>
-          Block
-        </button>
-      </form>
-      {error && <div className="status error">{error}</div>}
 
       <div className="admin-section">
         {loading ? (
@@ -122,29 +87,32 @@ export default function AdminCompliancePage() {
         ) : loadError ? (
           <div className="empty">Could not load blocked addresses — try again.</div>
         ) : blocked.length === 0 ? (
-          <div className="empty">No addresses blocked.</div>
+          <div className="empty">No blocked addresses.</div>
         ) : (
           <div className="admin-table-wrap">
             <table className="admin-table">
               <thead>
                 <tr>
-                  <th>Address</th>
-                  <th>Reason</th>
-                  <th>Blocked by</th>
-                  <th>Since</th>
-                  <th></th>
+                  <th scope="col">Address</th>
+                  <th scope="col">Reason</th>
+                  <th scope="col">Blocked (UTC)</th>
+                  <th scope="col"><span className="sr-only">Actions</span></th>
                 </tr>
               </thead>
               <tbody>
-                {blocked.map((b) => (
-                  <tr key={b.id}>
-                    <td className="mono">{b.stellar_address}</td>
-                    <td>{b.reason || "—"}</td>
-                    <td>{b.blocked_by_name || "—"}</td>
-                    <td>{formatUtcTimestamp(b.created_at)}</td>
+                {blocked.map((entry) => (
+                  <tr key={entry.id}>
+                    <td className="mono">{shortAddress(entry.stellar_address)}</td>
+                    <td>{entry.reason}</td>
+                    <td>{formatDate(entry.blocked_at)}</td>
                     <td>
-                      <button type="button" disabled={pendingId === b.id} onClick={() => handleUnblock(b)}>
-                        Unblock
+                      <button
+                        type="button"
+                        className="btn btn-secondary"
+                        disabled={pendingId === entry.id}
+                        onClick={() => handleUnblock(entry)}
+                      >
+                        {pendingId === entry.id ? "Unblocking…" : "Unblock"}
                       </button>
                     </td>
                   </tr>
@@ -153,6 +121,7 @@ export default function AdminCompliancePage() {
             </table>
           </div>
         )}
+        {error && <div className="error">{error}</div>}
       </div>
     </div>
   );

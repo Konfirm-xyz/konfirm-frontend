@@ -1,10 +1,24 @@
 "use client";
 
 import { useEffect } from "react";
-import Link from "next/link";
-import { usePathname } from "next/navigation";
 
 export default function RootError({
+  error,
+  reset,
+}: {
+  error: Error & { digest?: string };
+  reset: () => void;
+}) {
+  const pathname = usePathname();
+  useEffect(() => {
+    reportClientError(error, "error-boundary");
+  }, [error]);
+
+  return (
+    <div className="flex min-h-[60vh] flex-col items-center justify-center gap-4 p-6 text-center">
+      <h1 className="text-2xl font-semibold">Something went wrong</h1>
+      <p className="max-w-md text-sm text-muted-foreground">
+        An unexpected error occurred. Our team has been notified. You can
   error,
   reset,
 }: {
@@ -19,19 +33,23 @@ export default function RootError({
   const isAdmin = pathname === "/admin" || pathname.startsWith("/admin/");
 
   useEffect(() => {
-    console.error(error);
+    reportClientError(error, "error-boundary");
   }, [error]);
 
   return (
-    <div className="error-shell">
-      <h1>Something went wrong</h1>
-      <p>
+    <div className="flex min-h-[60vh] flex-col items-center justify-center gap-4 p-6 text-center">
+      <h1 className="text-2xl font-semibold">Something went wrong</h1>
+      <p className="max-w-md text-sm text-muted-foreground">
         {isAdmin
           ? "The admin console hit an unexpected error. You can retry, or sign in again to recover."
-          : "An unexpected error occurred. You can retry, or head back to sign in."}
+          : "An unexpected error occurred. Our team has been notified. You can try again, or come back later."}
       </p>
-      <div className="error-actions">
-        <button type="button" onClick={() => reset()}>
+      <div className="flex flex-wrap items-center justify-center gap-3">
+        <button
+          type="button"
+          onClick={() => reset()}
+          className="rounded-md bg-primary px-4 py-2 text-sm font-medium text-primary-foreground hover:opacity-90"
+        >
           Try again
         </button>
         {isAdmin ? (
