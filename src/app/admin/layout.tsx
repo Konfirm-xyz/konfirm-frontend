@@ -4,7 +4,7 @@ import { useState } from "react";
 import { usePathname, useRouter } from "next/navigation";
 import Link from "next/link";
 import { apiPost } from "@/lib/api";
-import { useRequireAuth } from "@/lib/useAuth";
+import { notifyLogout, useRequireAuth } from "@/lib/useAuth";
 
 interface Admin {
   name: string;
@@ -57,6 +57,7 @@ export default function AdminLayout({ children }: { children: React.ReactNode })
   const router = useRouter();
   const isLoginPage = pathname === "/admin/login";
   const [sidebarOpen, setSidebarOpen] = useState(false);
+  const [logoutError, setLogoutError] = useState<string | null>(null);
 
   // The login page itself never needs this check — running it there too
   // would just redirect straight back to itself.
@@ -68,8 +69,17 @@ export default function AdminLayout({ children }: { children: React.ReactNode })
   });
 
   async function handleLogout() {
-    await apiPost("/admin/auth/logout");
-    router.push("/admin/login");
+    setLogoutError(null);
+    try {
+      const result = await apiPost("/admin/auth/logout");
+      if (!result.ok) {
+        setLogoutError("Couldn't log out — try again");
+        return;
+      }
+      router.push("/admin/login");
+    } catch {
+      setLogoutError("Couldn't log out — try again");
+    }
   }
 
   if (isLoginPage) return <>{children}</>;
@@ -109,12 +119,17 @@ export default function AdminLayout({ children }: { children: React.ReactNode })
         </nav>
         <div className="admin-sidebar-footer">
           {admin && <div className="hint">{admin.name}</div>}
+          {logoutError && (
+            <div className="hint" role="alert">
+              {logoutError}
+            </div>
+          )}
           <button type="button" onClick={handleLogout}>
             Log out
           </button>
         </div>
       </aside>
-      <main className="admin-main">{children}</main>
+      <div className="admin-main">{children}</div>
       {sidebarOpen && (
         <button
           type="button"

@@ -95,7 +95,11 @@ export default function AdminBlockchainPage() {
             <tbody>
               {status.facilitator.balances.length === 0 ? (
                 <tr>
-                  <td className="mono">{status.facilitator.address}</td>
+                  <td className="mono">
+                    <a href={explorerUrl(status.facilitator.address, status.network)} target="_blank" rel="noreferrer">
+                      {status.facilitator.address}
+                    </a>
+                  </td>
                   <td colSpan={2}>
                     <span className="hint">unreachable</span>
                   </td>
@@ -103,7 +107,11 @@ export default function AdminBlockchainPage() {
               ) : (
                 status.facilitator.balances.map((b) => (
                   <tr key={b.asset}>
-                    <td className="mono">{status.facilitator.address}</td>
+                    <td className="mono">
+                      <a href={explorerUrl(status.facilitator.address, status.network)} target="_blank" rel="noreferrer">
+                        {status.facilitator.address}
+                      </a>
+                    </td>
                     <td>{b.asset}</td>
                     <td className="mono">{b.balance}</td>
                   </tr>

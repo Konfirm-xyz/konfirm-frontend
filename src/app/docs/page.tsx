@@ -21,8 +21,8 @@ export default function DocsPage() {
         <h2>Overview</h2>
         <p>
           Konfirm is a Stellar-based payment confirmation layer. When a payer sends stablecoins (USDC by default) to
-          your Stellar address, Konfirm watches the ledger and confirms the payment on-chain in real time — no polling,
-          no webhooks to configure, no off-chain settlement risk.
+          your Stellar address, Konfirm watches the ledger and confirms the payment on-chain — no webhooks to
+          configure, no off-chain settlement risk.
         </p>
       </section>
 
@@ -49,7 +49,7 @@ export default function DocsPage() {
               ["description", "string | null", "Human-readable label shown to the payer"],
               ["amount_usdc", "decimal | null", "Fixed amount in USDC; null means open-amount"],
               ["asset_code", "string", "Asset expected (default: USDC)"],
-              ["status", '"active" | "inactive"', "Whether the link accepts new payments"],
+              ["active", "boolean", "Whether the link accepts new payments"],
               ["created_at", "ISO 8601", "Creation timestamp (UTC)"],
             ].map(([field, type, desc]) => (
               <tr key={field as string} style={{ borderBottom: "1px solid var(--border, #e5e7eb)" }}>
@@ -87,6 +87,8 @@ export default function DocsPage() {
               ["fee_status", '"none" | "collected" | "owed" | "claimed" | "settled"', "Platform fee lifecycle"],
               ["fee_owed_raw", "decimal | null", "Platform fee amount if owed"],
               ["fee_asset_code", "string | null", "Asset in which the fee is owed"],
+              ["created_at", "ISO 8601", "Creation timestamp (UTC)"],
+              ["flag_reason", "string | null", "Reason the payment is held, if applicable"],
             ].map(([field, type, desc]) => (
               <tr key={field as string} style={{ borderBottom: "1px solid var(--border, #e5e7eb)" }}>
                 <td style={{ padding: "0.5rem 0.75rem" }}>
@@ -114,7 +116,10 @@ export default function DocsPage() {
             Konfirm watches the Stellar ledger in real time. When the transaction lands and matches the link, it is
             confirmed and appears in the merchant&apos;s <code>/activity</code> dashboard immediately.
           </li>
-          <li>Merchant can cash out their balance at any time via <code>/cashout</code>.</li>
+          <li>
+            Merchant can cash out their balance via <code>/cashout</code>. The current testnet partner enforces a
+            per-transaction limit of 1–10 units, so a balance above 10 units requires multiple cash-outs.
+          </li>
         </ol>
       </section>
 
@@ -134,7 +139,8 @@ export default function DocsPage() {
         <p>
           Every merchant account includes a referral code, generated automatically at signup. Referred merchants are
           tracked under your account — see your <a href="/referrals">Referrals page</a> for your code, promo status,
-          and the list of merchants you&apos;ve referred.
+          and the list of merchants you&apos;ve referred. For how the promotional fee period works, see{" "}
+          <a href="/referral-promo">Referral promo days</a>.
         </p>
       </section>
 

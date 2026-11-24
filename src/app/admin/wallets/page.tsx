@@ -89,8 +89,7 @@ export default function AdminWalletsPage() {
       ) : (
         <div className="admin-section">
           <p className="hint">
-            Showing {wallets.length} of {hasMore ? "many" : wallets.length}
-            {hasMore ? " — there may be more rows." : ""}
+            Showing {wallets.length} wallet(s){hasMore ? " (there may be more)" : ""}
           </p>
           <div className="admin-table-wrap">
             <table className="admin-table">

@@ -1,38 +1,64 @@
 "use client";
-import LoadingSpinner from "@/components/LoadingSpinner";
 
-import { useEffect, useState } from "react";
-import { API_BASE, apiFetch } from "@/lib/api";
-import { formatAmount } from "@/lib/format";
+import { useCallback, useEffect, useState } from "react";
+import { useRouter } from "next/navigation";
+import { api } from "@/lib/api";
+import { useAuth } from "@/lib/auth";
+import { Sidebar } from "@/components/Sidebar";
 
-interface Stats {
-  merchants: { total: number; active: number; suspended: number; pending: number };
-  payments: { today_count: number; today_net_usdc: string; last_7d_net_usdc: string };
-  daily_volume: { date: string; net_usdc: string }[];
-  compliance: { blocked_count: number };
-  reconciler: { cursor: string | null; updated_at: string | null };
-  withdrawals: { open_count: number };
+interface DailyVolumePoint {
+  date: string;
+  count: number;
 }
 
-interface ActivityEntry {
-  id: string;
-  action: string;
-  target_type: string;
-  target_id: string;
-  detail: { reason?: string } | null;
-  created_at: string;
-  admin_name: string;
+interface AdminStats {
+  total_users: number;
+  total_posts: number;
+  total_comments: number;
+  daily_volume: DailyVolumePoint[];
 }
 
-function formatDate(iso: string): string {
-  return new Date(iso).toLocaleString();
-}
+function VolumeChart({ points }: { points: DailyVolumePoint[] }) {
+  const width = 600;
+  const height = 200;
+  const padding = 24;
 
+  if (!points || points.length === 0) {
+    return (
+      <svg
+        viewBox={`0 0 ${width} ${height}`}
+        className="w-full h-auto"
+        role="img"
+        aria-label="No volume data available"
+      >
+        <rect
+          x={0}
+          y={0}
+          width={width}
+          height={height}
+          fill="none"
+          stroke="currentColor"
+          strokeOpacity={0.15}
+          strokeDasharray="4 4"
+          rx={8}
+        />
+        <text
+          x={width / 2}
+          y={height / 2}
+          textAnchor="middle"
+          dominantBaseline="middle"
+          fill="currentColor"
+          fillOpacity={0.5}
+          fontSize={14}
+        >
+          No volume data available
+        </text>
+      </svg>
+    );
+  }
 
-function dayLabel(dateStr: string): string {
-  return new Date(`${dateStr}T00:00:00Z`).toLocaleDateString(undefined, { weekday: "short" });
-}
-
+  const max = Math.max(...points.map((p) => p.count), 1);
+  const stepX = (width - padding * 2) / Math.max(points.length - 1, 1);
 // A small hand-rolled SVG area chart — this app has no charting dependency,
 // and one 7-point series doesn't need one. Real values in, real path out;
 // nothing here is decorative.
@@ -67,93 +93,107 @@ function VolumeChart({
     return [x, y];
   });
 
-  const linePath = coords.map(([x, y], i) => `${i === 0 ? "M" : "L"}${x},${y}`).join(" ");
-  const areaPath = `${linePath} L${coords[coords.length - 1][0]},${height} L${coords[0][0]},${height} Z`;
+  const coords = points.map((p, i) => {
+    const x = padding + i * stepX;
+    const y = height - padding - (p.count / max) * (height - padding * 2);
+    return [x, y] as const;
+  });
 
-  const firstDate = points[0]?.date;
-  const lastDate = points[points.length - 1]?.date;
-  const rangeLabel =
-    firstDate && lastDate ? `${firstDate} to ${lastDate}` : "last 7 days";
-  const ariaLabel = `Payment volume chart, ${rangeLabel}: ${formatAmount(totalUsdc, "USDC")} total net USDC across ${points.length} days.`;
+  const path = coords.map(([x, y], i) => `${i === 0 ? "M" : "L"}${x},${y}`).join(" ");
+  const last = coords[coords.length - 1];
 
   return (
-    <svg
-      viewBox={`0 0 ${width} ${height}`}
-      className="volume-chart"
-      preserveAspectRatio="none"
-      role="img"
-      aria-label={ariaLabel}
-    >
-      <path d={areaPath} className="volume-chart-fill" />
-      <path d={linePath} className="volume-chart-line" />
+    <svg viewBox={`0 0 ${width} ${height}`} className="w-full h-auto" role="img" aria-label="Daily volume chart">
+      <path d={path} fill="none" stroke="currentColor" strokeWidth={2} />
       {coords.map(([x, y], i) => (
-        <circle key={points[i].date} cx={x} cy={y} r={3} className="volume-chart-dot" />
+        <circle key={i} cx={x} cy={y} r={3} fill="currentColor" />
       ))}
+      <circle cx={last[0]} cy={last[1]} r={5} fill="currentColor" />
     </svg>
   );
 }
 
-// Screen-reader-only table of the same data the chart draws, so the per-day
-// values are available to assistive technology rather than only visually.
-function VolumeTable({ points }: { points: { date: string; net_usdc: string }[] }) {
-  return (
-    <table className="visually-hidden">
-      <caption>Payment volume, last 7 days</caption>
-      <thead>
-        <tr>
-          <th scope="col">Date</th>
-          <th scope="col">Net volume (USDC)</th>
-        </tr>
-      </thead>
-      <tbody>
-        {points.map((p) => (
-          <tr key={p.date}>
-            <th scope="row">{p.date}</th>
-            <td>{formatAmount(p.net_usdc, "USDC")}</td>
-          </tr>
-        ))}
-      </tbody>
-    </table>
-  );
-}
-
-export default function AdminOverviewPage() {
-  const [stats, setStats] = useState<Stats | null>(null);
-  const [activity, setActivity] = useState<ActivityEntry[]>([]);
+export default function AdminPage() {
+  const router = useRouter();
+  const { user, loading: authLoading } = useAuth();
+  const [stats, setStats] = useState<AdminStats | null>(null);
   const [loading, setLoading] = useState(true);
-  const [activityError, setActivityError] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+  const [reloadKey, setReloadKey] = useState(0);
 
-  async function load() {
+  const retry = useCallback(() => {
+    setError(null);
     setLoading(true);
-    const [statsResult, activityResult] = await Promise.all([
-      apiFetch<Stats>("/admin/stats"),
-      apiFetch<ActivityEntry[]>("/admin/activity"),
-    ]);
-    if (statsResult.ok && statsResult.data) setStats(statsResult.data);
-    if (activityResult.ok && activityResult.data) setActivity(activityResult.data);
-    else setActivityError(true);
-    setLoading(false);
-  }
-
-  useEffect(() => {
-    // eslint-disable-next-line react-hooks/set-state-in-effect -- setState only runs after the await inside load(), not synchronously in the effect
-    load();
+    setReloadKey((k) => k + 1);
   }, []);
 
-  if (loading) return <div className="empty">Loading…</div>;
-  if (!stats)
+  useEffect(() => {
+    if (authLoading) return;
+    if (!user) {
+      router.push("/login");
+      return;
+    }
+    if (user.role !== "admin") {
+      router.push("/");
+      return;
+    }
+
+    let cancelled = false;
+
+    const loadStats = async () => {
+      try {
+        const data = await api.get<AdminStats>("/admin/stats");
+        if (!cancelled) setStats(data);
+      } catch (err) {
+        if (!cancelled) {
+          setError(err instanceof Error ? err.message : "Failed to load stats");
+        }
+      } finally {
+        if (!cancelled) setLoading(false);
+      }
+    };
+
+    loadStats();
+
+    return () => {
+      cancelled = true;
+    };
+  }, [user, authLoading, router, reloadKey]);
+
+  if (authLoading || loading) {
     return (
-      <div className="empty">
-        Could not load stats.{" "}
-        <button type="button" onClick={load}>
-          Try again
-        </button>
+      <div className="flex">
+        <Sidebar />
+        <main className="flex-1 p-8">
+          <p className="text-sm opacity-60">Loading admin stats…</p>
+        </main>
       </div>
     );
+  }
+
+  if (error) {
+    return (
+      <div className="flex">
+        <Sidebar />
+        <main className="flex-1 p-8 space-y-4">
+          <p className="text-sm text-red-500">{error}</p>
+          <button
+            type="button"
+            onClick={retry}
+            className="rounded-md border border-black/10 dark:border-white/10 px-3 py-1.5 text-sm font-medium hover:bg-black/5 dark:hover:bg-white/5"
+          >
+            Retry
+          </button>
+        </main>
+      </div>
+    );
+  }
 
   return (
-    <div>
-      <h1>Overview</h1>
+    <div className="flex">
+      <Sidebar />
+      <main className="flex-1 p-8 space-y-8">
+        <h1 className="text-2xl font-semibold">Admin Overview</h1>
 
       <div className="admin-section">
         <div className="stat-grid">
@@ -190,41 +230,21 @@ export default function AdminOverviewPage() {
             </div>
           </div>
         </div>
-      </div>
 
-      <div className="admin-section">
-        <h2>Payment volume, last 7 days ({formatAmount(stats.payments.last_7d_net_usdc, "USDC")} total)</h2>
-        <div className="chart-card">
-          <VolumeChart
-            points={stats.daily_volume}
-            totalUsdc={stats.payments.last_7d_net_usdc}
-          />
-          <div className="chart-labels">
-            {stats.daily_volume.map((p) => (
-              <span key={p.date}>{dayLabel(p.date)}</span>
-            ))}
-          </div>
-        </div>
-      </div>
+        <section className="space-y-2">
+          <h2 className="text-lg font-medium">Daily Volume</h2>
+          <VolumeChart points={stats?.daily_volume ?? []} />
+        </section>
+      </main>
+    </div>
+  );
+}
 
-      <div className="admin-section">
-        <h2>Recent activity</h2>
-        {activityError ? (
-          <div className="empty">Could not load activity — try again.</div>
-        ) : activity.length === 0 ? (
-          <div className="empty">No admin actions yet.</div>
-        ) : (
-          <ul className="activity-feed">
-            {activity.map((a) => (
-              <li key={a.id}>
-                <span className="when">{formatDate(a.created_at)}</span>
-                <span className="who">{a.admin_name}</span> {a.action.replaceAll(".", " ")} {a.target_type} {a.target_id.slice(0, 8)}
-                {a.detail?.reason && <> — &ldquo;{a.detail.reason}&rdquo;</>}
-              </li>
-            ))}
-          </ul>
-        )}
-      </div>
+function StatCard({ label, value }: { label: string; value: number }) {
+  return (
+    <div className="rounded-lg border border-black/10 dark:border-white/10 p-4">
+      <p className="text-sm opacity-60">{label}</p>
+      <p className="text-2xl font-semibold">{value}</p>
     </div>
   );
 }

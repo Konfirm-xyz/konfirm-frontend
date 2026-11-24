@@ -49,4 +49,18 @@ describe("parseAmount", () => {
   it("rejects a value that is only symbols", () => {
     expect(parseAmount("$€")).toBeNull();
   });
+
+  // Extremely large but syntactically valid input must be rejected rather
+  // than silently accepted with degraded precision beyond 2^53.
+  it("rejects an absurdly large amount", () => {
+    expect(parseAmount("99999999999999999999")).toBeNull();
+  });
+
+  it("rejects a value beyond the safe-integer range", () => {
+    expect(parseAmount("9007199254740993")).toBeNull();
+  });
+
+  it("accepts a large but reasonable amount", () => {
+    expect(parseAmount("1000000000")).toBe(1000000000);
+  });
 });

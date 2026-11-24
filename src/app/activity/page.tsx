@@ -4,9 +4,9 @@ import { Suspense, useCallback, useEffect, useMemo, useRef, useState } from "rea
 import { useRouter, useSearchParams } from "next/navigation";
 import Link from "next/link";
 import { API_BASE, apiPost } from "@/lib/api";
-import { useRequireAuth } from "@/lib/useAuth";
+import { useRequireAuth, broadcastLogout } from "@/lib/useAuth";
 import { formatAmount } from "@/lib/format";
-import { shouldShowPollError } from "@/lib/poll";
+import { isTerminalAuthFailure, shouldShowPollError } from "@/lib/poll";
 import FeeSettlement from "@/components/fee-settlement";
 
 type PaymentStatus = "paid" | "held" | "refunded" | "disputed";
@@ -87,6 +87,8 @@ function ActivityContent() {
   const [dateFilter, setDateFilter] = useState<DateRangePreset>("all");
   const [expandedId, setExpandedId] = useState<string | null>(null);
   const [now, setNow] = useState<number | null>(null);
+  const [logoutError, setLogoutError] = useState(false);
+  const [loggingOut, setLoggingOut] = useState(false);
   const consecutiveFailures = useRef(0);
 
   const poll = useCallback(async () => {
@@ -96,9 +98,16 @@ function ActivityContent() {
         fetch(`${API_BASE}/payments/mine`),
         fetch(`${API_BASE}/payments/mine/pending`),
       ]);
+      // A 401 means the session is gone — retrying will never fix it. Redirect
+      // to login (same pattern as useRequireAuth) instead of feeding it into
+      // the transient-failure counter and showing a generic "poll error".
+      if (isTerminalAuthFailure(paymentsRes.status) || isTerminalAuthFailure(pendingRes.status)) {
+        router.push("/login");
+        return;
+      }
       if (!paymentsRes.ok || !pendingRes.ok) {
         consecutiveFailures.current += 1;
-        if (shouldShowPollError(consecutiveFailures.current, POLL_FAILURE_THRESHOLD)) setPollError(true);
+        if (consecutiveFailures.current >= POLL_FAILURE_THRESHOLD) setPollError(true);
         return;
       }
       const paymentsBody: Payment[] = await paymentsRes.json();
@@ -110,9 +119,9 @@ function ActivityContent() {
       setPollError(false);
     } catch {
       consecutiveFailures.current += 1;
-      if (shouldShowPollError(consecutiveFailures.current, POLL_FAILURE_THRESHOLD)) setPollError(true);
+      if (consecutiveFailures.current >= POLL_FAILURE_THRESHOLD) setPollError(true);
     }
-  }, [hasAddress]);
+  }, [hasAddress, router]);
 
   // The recursive scheduling lives here, in a plain local function, rather
   // than inside the `poll` callback referencing itself — a useCallback
@@ -162,8 +171,25 @@ function ActivityContent() {
   }, [resolved, poll]);
 
   async function handleLogout() {
-    await apiPost("/auth/logout");
-    router.push("/login");
+    if (loggingOut) return;
+    setLoggingOut(true);
+    setLogoutError(false);
+    try {
+      const result = await apiPost("/auth/logout");
+      if (!result.ok) {
+        // The server never invalidated the session cookie — stay put so the
+        // user doesn't get a false sense of being logged out.
+        setLogoutError(true);
+        return;
+      }
+      broadcastLogout();
+      router.push("/login");
+    } catch {
+      // Network-level failure (offline/DNS/CORS) — fetch rejected.
+      setLogoutError(true);
+    } finally {
+      setLoggingOut(false);
+    }
   }
 
   // Held payments are listed but never counted as received until an admin
@@ -217,15 +243,9 @@ function ActivityContent() {
             padding: "10px 16px",
             fontWeight: 600,
             fontSize: 13,
-            borderRadius: 6,
-            marginBottom: 16,
-            display: "flex",
-            alignItems: "center",
-            gap: 8,
           }}
         >
-          <span>⚠</span>
-          Admin preview — you are viewing this merchant&apos;s dashboard as an admin. This session is read-only and has been logged.
+          Admin preview — viewing as merchant
         </div>
       )}
       <div className="header-row">
@@ -233,165 +253,113 @@ function ActivityContent() {
           <span className="mark">✓</span> Konfirm
         </div>
         {showNav && (
-          <div className="nav">
-            <Link href="/new">+ New payment</Link>
-            <Link href="/links">My links</Link>
-            <Link href="/cashout">Cash out</Link>
-            <Link href="/referrals">Referrals</Link>
-            <Link href="/docs">Docs</Link>
-            <button type="button" onClick={handleLogout}>
+          <div className="nav-actions">
+            <Link href="/links" className="btn btn-secondary">
+              Payment links
+            </Link>
+            <button type="button" className="btn btn-secondary" onClick={handleLogout}>
               Log out
             </button>
           </div>
         )}
       </div>
-      <h1>{merchant?.name ? `${merchant.name}'s activity` : "Your activity"}</h1>
-      <p className="sub">Every payment below landed and was konfirmed on-chain — nothing here is an estimate.</p>
-      {pollError ? (
-        <div className="waiting-banner show" role="status">
-          <span className="spin" /> Having trouble reaching the server — retrying…
+
+      <div className="card">
+        <div className="card-header">
+          <h2>Activity</h2>
+          {pollError && (
+            <span className="badge badge-warn" role="status">
+              Live updates paused — reconnecting…
+            </span>
+          )}
         </div>
-      ) : (
-        <div className="live-dot">
-          <span className="d" /> Watching for new payments
-        </div>
-      )}
-      <div className={`waiting-banner${pending ? " show" : ""}`}>
-        <span className="spin" /> A payment is on its way — konfirming on-chain now…
-      </div>
-      {merchant?.stellar_base_address && <FeeSettlement address={merchant.stellar_base_address} />}
-      <div className="balance">
-        {hasBalances ? (
-          Object.entries(totals).map(([code, amount]) => (
-            <div key={code}>
-              {formatAmount(amount, code)} <small>received</small>
-            </div>
-          ))
-        ) : (
-          <>
-            {formatAmount(0, "USDC")} <small>received</small>
-          </>
-        )}
-      </div>
-      {hasAddress && payments.length > 0 && (
-        <div className="header-row" style={{ gap: 12, flexWrap: "wrap" }}>
-          <div className="field">
-            <label htmlFor="status-filter">Status</label>
-            <select
-              id="status-filter"
-              value={statusFilter}
-              onChange={(e) => setStatusFilter(e.target.value as "all" | PaymentStatus)}
-            >
-              {STATUS_FILTERS.map((f) => (
-                <option key={f.value} value={f.value}>
-                  {f.label}
-                </option>
-              ))}
-            </select>
-          </div>
-          <div className="field">
-            <label htmlFor="date-filter">Date range</label>
-            <select id="date-filter" value={dateFilter} onChange={(e) => setDateFilter(e.target.value as DateRangePreset)}>
-              {DATE_RANGE_FILTERS.map((f) => (
-                <option key={f.value} value={f.value}>
-                  {f.label}
-                </option>
-              ))}
-            </select>
-          </div>
-        </div>
-      )}
-      <div>
-        {!hasAddress && <div className="empty">No Stellar address on file yet.</div>}
-        {hasAddress && payments.length === 0 && !pending && (
-          <div className="empty">No payments yet — this updates the instant one lands.</div>
-        )}
-        {hasAddress && payments.length > 0 && filteredPayments.length === 0 && (
-          <div className="empty">No payments match this filter.</div>
-        )}
-        {filteredPayments.map((p) => {
-          const isExpanded = expandedId === p.id;
-          return (
-            <div
-              className="payment"
-              key={p.id}
-              role="button"
-              tabIndex={0}
-              aria-expanded={isExpanded}
-              onClick={() => setExpandedId(isExpanded ? null : p.id)}
-              onKeyDown={(e) => {
-                if (e.key === "Enter" || e.key === " ") {
-                  e.preventDefault();
-                  setExpandedId(isExpanded ? null : p.id);
-                }
-              }}
-              style={{ cursor: "pointer", flexDirection: "column", alignItems: "stretch" }}
-            >
-              <div style={{ display: "flex", justifyContent: "space-between", width: "100%" }}>
-                <div className="left">
-                  <div className="tick">✓</div>
-                  <div className="desc">
-                    {p.link_description || "Payment"}
-                    <div className="from">
-                      from {p.payer_address.slice(0, 4)}…{p.payer_address.slice(-4)}
-                    </div>
-                    {p.fee_status === "owed" && p.fee_owed_raw && (
-                      <div className="from">
-                        Fee owed {p.fee_owed_raw} {p.fee_asset_code}
-                      </div>
-                    )}
-                    {p.status === "held" && (
-                      <div className="from" role="status">
-                        {HOLD_REASON_TEXT[p.flag_reason ?? ""] ?? HOLD_FALLBACK}
-                      </div>
-                    )}
-                  </div>
-                </div>
-                <div className="amount">
-                  {p.status === "held" ? "On hold" : formatAmount(Number(p.net_usdc), p.asset_code)}
-                </div>
+
+        {hasBalances && (
+          <div className="balances">
+            {Object.entries(totals).map(([asset, amount]) => (
+              <div key={asset} className="balance">
+                <span className="balance-amount">{formatAmount(amount, asset)}</span>
+                <span className="balance-label">received</span>
               </div>
-              {isExpanded && (
-                <div className="from" style={{ marginTop: 12, width: "100%", lineHeight: 1.8 }}>
-                  <div>
-                    <strong>Payment ID:</strong> <span className="mono">{p.id}</span>
-                  </div>
-                  <div>
-                    <strong>Status:</strong> {p.status}
-                  </div>
-                  <div>
-                    <strong>Date:</strong> {new Date(p.created_at).toLocaleString()}
-                  </div>
-                  <div>
-                    <strong>Payer address:</strong> <span className="mono">{p.payer_address}</span>
-                  </div>
-                  <div>
-                    <strong>Amount:</strong> {formatAmount(Number(p.net_usdc), p.asset_code)}
-                  </div>
-                  {p.fee_status !== "none" && (
-                    <div>
-                      <strong>Fee status:</strong> {p.fee_status}
-                      {p.fee_owed_raw && ` (${p.fee_owed_raw} ${p.fee_asset_code})`}
-                    </div>
-                  )}
+            ))}
+          </div>
+        )}
+
+        <div className="filters">
+          {STATUS_FILTERS.map((f) => (
+            <button
+              key={f.value}
+              type="button"
+              className={`chip ${statusFilter === f.value ? "chip-active" : ""}`}
+              onClick={() => setStatusFilter(f.value)}
+            >
+              {f.label}
+            </button>
+          ))}
+          <select
+            className="select"
+            value={dateFilter}
+            onChange={(e) => setDateFilter(e.target.value as DateRangePreset)}
+          >
+            {DATE_RANGE_FILTERS.map((f) => (
+              <option key={f.value} value={f.value}>
+                {f.label}
+              </option>
+            ))}
+          </select>
+        </div>
+
+        {filteredPayments.length === 0 ? (
+          <div className="empty">No payments yet.</div>
+        ) : (
+          <ul className="payment-list">
+            {filteredPayments.map((p) => (
+              <li key={p.id} className="payment-row">
+                <button
+                  type="button"
+                  className="payment-summary"
+                  onClick={() => setExpandedId(expandedId === p.id ? null : p.id)}
+                >
+                  <span className="payment-amount">{formatAmount(Number(p.net_usdc), p.asset_code)}</span>
+                  <span className={`badge badge-${p.status}`}>{p.status}</span>
                   {p.status === "held" && (
-                    <div>
-                      <strong>Hold reason:</strong> {HOLD_REASON_TEXT[p.flag_reason ?? ""] ?? HOLD_FALLBACK}
-                    </div>
+                    <span className="payment-reason">
+                      {p.flag_reason ? HOLD_REASON_TEXT[p.flag_reason] ?? HOLD_FALLBACK : HOLD_FALLBACK}
+                    </span>
                   )}
-                </div>
-              )}
-            </div>
-          );
-        })}
+                  <span className="payment-time">{new Date(p.created_at).toLocaleString()}</span>
+                </button>
+                {expandedId === p.id && (
+                  <div className="payment-detail">
+                    <div>
+                      <strong>From:</strong> {p.payer_address}
+                    </div>
+                    {p.link_description && (
+                      <div>
+                        <strong>Link:</strong> {p.link_description}
+                      </div>
+                    )}
+                    <div>
+                      <strong>ID:</strong> {p.id}
+                    </div>
+                  </div>
+                )}
+              </li>
+            ))}
+          </ul>
+        )}
       </div>
+
+      {pending && <div className="empty">A payment is pending confirmation…</div>}
+
+      {hasAddress && <FeeSettlement />}
     </div>
   );
 }
 
 export default function ActivityPage() {
   return (
-    <Suspense fallback={<div className="wrap"><div className="empty">Loading…</div></div>}>
+    <Suspense fallback={<div className="empty">Loading…</div>}>
       <ActivityContent />
     </Suspense>
   );
