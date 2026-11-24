@@ -9,10 +9,10 @@ const DEFAULT_NETWORK = "testnet";
 
 export function explorerUrl(id: string, network?: string | null): string {
   const net = network || DEFAULT_NETWORK;
-  return `https://stellar.expert/explorer/${net}/contract/${id}`;
+  return `https://stellar.expert/explorer/${net}/contract/${encodeURIComponent(id)}`;
 }
 
 export function explorerTxUrl(hash: string, network?: string | null): string {
   const net = network || DEFAULT_NETWORK;
-  return `https://stellar.expert/explorer/${net}/tx/${hash}`;
+  return `https://stellar.expert/explorer/${net}/tx/${encodeURIComponent(hash)}`;
 }
