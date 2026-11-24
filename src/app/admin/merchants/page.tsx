@@ -20,6 +20,7 @@ interface Merchant {
 
 const RISK_TIERS: RiskTier[] = ["unverified", "standard", "established", "enterprise"];
 const REASON_MAX_LENGTH = 500;
+const REASON_MIN_LENGTH = 3;
 
 function formatDate(iso: string): string {
   return formatUtcTimestamp(iso);
@@ -30,17 +31,57 @@ function shortAddress(address: string | null): string {
   return `${address.slice(0, 4)}…${address.slice(-4)}`;
 }
 
+// Shared reason-capture policy for every consequential admin action on this
+// page: a reason is always required, trimmed, at least REASON_MIN_LENGTH
+// characters, and no longer than REASON_MAX_LENGTH. Returns the trimmed
+// reason, or null if the admin cancelled or the input was invalid (in which
+// case `error` is set).
+function promptForReason(actionLabel: string, setError: (msg: string) => void): string | null {
+  const reason = window.prompt(
+    `Why? Required, shown in the activity log (max ${REASON_MAX_LENGTH} chars):`,
+    "",
+  );
+  if (reason === null) return null;
+  const trimmed = reason.trim();
+  if (trimmed.length < REASON_MIN_LENGTH) {
+    setError(`A reason of at least ${REASON_MIN_LENGTH} characters is needed to ${actionLabel}.`);
+    return null;
+  }
+  if (trimmed.length > REASON_MAX_LENGTH) {
+    setError(`Reason must be ${REASON_MAX_LENGTH} characters or fewer (was ${trimmed.length}).`);
+    return null;
+  }
+  return trimmed;
+}
+
 export default function AdminMerchantsPage() {
   const [merchants, setMerchants] = useState<Merchant[]>([]);
   const [search, setSearch] = useState("");
   const [loading, setLoading] = useState(true);
   const [loadingMore, setLoadingMore] = useState(false);
-  const [pendingId, setPendingId] = useState<string | null>(null);
+  const [pendingIds, setPendingIds] = useState<Set<string>>(() => new Set());
   const [error, setError] = useState("");
   const [loadError, setLoadError] = useState(false);
-  const inFlight = useRef(false);
+  const inFlight = useRef<Set<string>>(new Set());
 
   const PAGE_SIZE = 50;
+
+  function markPending(id: string, pending: boolean) {
+    if (pending) {
+      inFlight.current.add(id);
+    } else {
+      inFlight.current.delete(id);
+    }
+    setPendingIds((prev) => {
+      const next = new Set(prev);
+      if (pending) {
+        next.add(id);
+      } else {
+        next.delete(id);
+      }
+      return next;
+    });
+  }
 
   async function load(offset = 0) {
     const result = await apiFetch<Merchant[]>(`/admin/merchants?limit=${PAGE_SIZE}&offset=${offset}`);
@@ -66,35 +107,24 @@ export default function AdminMerchantsPage() {
   }
 
   async function sendPasswordReset(merchant: Merchant) {
-    if (inFlight.current) return;
+    if (inFlight.current.has(merchant.id)) return;
     if (!window.confirm(`Email a password-reset link to ${merchant.email}?`)) return;
-    const reason = window.prompt(
-      `Why? Required, shown in the activity log (max ${REASON_MAX_LENGTH} chars):`,
-      ""
-    );
-    if (!reason || reason.trim().length < 3) {
-      setError("A reason of at least 3 characters is needed to send a reset.");
-      return;
-    }
-    if (reason.trim().length > REASON_MAX_LENGTH) {
-      setError(`Reason must be ${REASON_MAX_LENGTH} characters or fewer (was ${reason.trim().length}).`);
-      return;
-    }
-    setPendingId(merchant.id);
+    const reason = promptForReason("send a reset", setError);
+    if (reason === null) return;
+    markPending(merchant.id, true);
     setError("");
-    const result = await apiPost(`/admin/merchants/${merchant.id}/password-reset`, { reason: reason.trim() });
+    const result = await apiPost(`/admin/merchants/${merchant.id}/password-reset`, { reason });
     if (result.ok) {
       window.alert(`Reset link sent to ${merchant.email}.`);
     } else {
       reportError("admin.merchant.password_reset", { merchantId: merchant.id, message: result.message });
       setError(result.message || "Could not send the reset email.");
     }
-    inFlight.current = false;
-    setPendingId(null);
+    markPending(merchant.id, false);
   }
 
   async function toggleStatus(merchant: Merchant) {
-    if (inFlight.current) return;
+    if (inFlight.current.has(merchant.id)) return;
     const nextStatus = merchant.status === "suspended" ? "active" : "suspended";
     const verb = nextStatus === "suspended" ? "suspend" : "reactivate";
     const confirmMessage =
@@ -105,19 +135,11 @@ export default function AdminMerchantsPage() {
 
     let reason: string | null = "";
     if (verb === "suspend") {
-      reason = window.prompt(
-        `Reason (optional, shown in the activity log, max ${REASON_MAX_LENGTH} chars):`,
-        ""
-      );
+      reason = promptForReason("suspend this merchant", setError);
       if (reason === null) return;
-      if (reason.trim().length > REASON_MAX_LENGTH) {
-        setError(`Reason must be ${REASON_MAX_LENGTH} characters or fewer (was ${reason.trim().length}).`);
-        return;
-      }
     }
 
-    inFlight.current = true;
-    setPendingId(merchant.id);
+    markPending(merchant.id, true);
     setError("");
     const result = await apiPatch(`/admin/merchants/${merchant.id}/status`, {
       status: nextStatus,
@@ -129,12 +151,11 @@ export default function AdminMerchantsPage() {
       reportError("admin.merchant.status_change", { merchantId: merchant.id, status: nextStatus, message: result.message });
       setError(result.message || `Could not ${verb} this merchant.`);
     }
-    inFlight.current = false;
-    setPendingId(null);
+    markPending(merchant.id, false);
   }
 
   async function changeTier(merchant: Merchant, riskTier: RiskTier) {
-    if (inFlight.current) return;
+    if (inFlight.current.has(merchant.id)) return;
     if (riskTier === merchant.risk_tier) return;
     // This changes what tier a merchant is TREATED as, not their actual
     // verification status — there's no identity/KYC check behind this yet,
@@ -146,18 +167,20 @@ export default function AdminMerchantsPage() {
     )
       return;
 
+    const reason = promptForReason("change this merchant's tier", setError);
+    if (reason === null) return;
+
     inFlight.current = true;
     setPendingId(merchant.id);
     setError("");
-    const result = await apiPatch(`/admin/merchants/${merchant.id}/tier`, { risk_tier: riskTier });
+    const result = await apiPatch(`/admin/merchants/${merchant.id}/tier`, { risk_tier: riskTier, reason });
     if (result.ok) {
       await load();
     } else {
       reportError("admin.merchant.tier_change", { merchantId: merchant.id, riskTier, message: result.message });
       setError(result.message || "Could not change this merchant's tier.");
     }
-    inFlight.current = false;
-    setPendingId(null);
+    markPending(merchant.id, false);
   }
 
   const q = search.trim().toLowerCase();
@@ -172,7 +195,7 @@ export default function AdminMerchantsPage() {
 
   return (
     <div>
-      <h1>Merchants</h1>
+      <h1 id="merchants-heading">Merchants</h1>
 
       <div className="admin-inline-form">
         <div className="field">
@@ -196,7 +219,7 @@ export default function AdminMerchantsPage() {
           <div className="empty">{merchants.length === 0 ? "No merchants yet." : "No merchants match this search."}</div>
         ) : (
           <div className="admin-table-wrap">
-            <table className="admin-table">
+            <table className="admin-table" aria-labelledby="merchants-heading">
               <thead>
                 <tr>
                   <th scope="col">Merchant</th>
@@ -221,7 +244,7 @@ export default function AdminMerchantsPage() {
                       <select
                         aria-label="Risk tier"
                         value={m.risk_tier}
-                        disabled={pendingId === m.id}
+                        disabled={pendingIds.has(m.id)}
                         onChange={(e) => changeTier(m, e.target.value as RiskTier)}
                       >
                         {RISK_TIERS.map((tier) => (
@@ -239,17 +262,17 @@ export default function AdminMerchantsPage() {
                           type="button"
                           className="btn btn-ghost btn-sm"
                           disabled={pendingId === m.id}
-                          onClick={() => toggleStatus(m)}
+                          onClick={() => sendPasswordReset(m)}
                         >
-                          {m.status === "suspended" ? "Reactivate" : "Suspend"}
+                          Send reset
                         </button>
                         <button
                           type="button"
                           className="btn btn-ghost btn-sm"
                           disabled={pendingId === m.id}
-                          onClick={() => sendPasswordReset(m)}
+                          onClick={() => toggleStatus(m)}
                         >
-                          Send reset
+                          {m.status === "suspended" ? "Reactivate" : "Suspend"}
                         </button>
                       </div>
                     </td>
@@ -259,14 +282,21 @@ export default function AdminMerchantsPage() {
             </table>
           </div>
         )}
-        {error && <div className="form-error">{error}</div>}
+
         {!loading && !loadError && merchants.length > 0 && merchants.length % PAGE_SIZE === 0 && (
-          <div className="admin-load-more">
-            <button type="button" className="btn btn-ghost" disabled={loadingMore} onClick={loadMore}>
+          <div style={{ marginTop: "1rem" }}>
+            <button
+              type="button"
+              className="btn btn-ghost"
+              disabled={loadingMore}
+              onClick={loadMore}
+            >
               {loadingMore ? "Loading…" : "Load more"}
             </button>
           </div>
         )}
+
+        {error && <div className="form-error" role="alert">{error}</div>}
       </div>
     </div>
   );

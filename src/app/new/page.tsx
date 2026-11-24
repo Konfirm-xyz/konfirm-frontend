@@ -24,6 +24,33 @@ interface PaymentDraft {
   description: string;
 }
 
+function readDraft(): PaymentDraft | null {
+  try {
+    const raw = sessionStorage.getItem(DRAFT_KEY);
+    if (!raw) return null;
+    const parsed = JSON.parse(raw) as Partial<PaymentDraft>;
+    const currency: Currency =
+      parsed.currency === "USDC" || parsed.currency === "EURC" || parsed.currency === "XLM"
+        ? parsed.currency
+        : "XLM";
+    return {
+      amount: typeof parsed.amount === "string" ? parsed.amount : "",
+      currency,
+      description: typeof parsed.description === "string" ? parsed.description : "",
+    };
+  } catch {
+    return null;
+  }
+}
+
+function writeDraft(draft: PaymentDraft) {
+  try {
+    sessionStorage.setItem(DRAFT_KEY, JSON.stringify(draft));
+  } catch {
+    // sessionStorage unavailable — ignore
+  }
+}
+
 export default function NewPaymentPage() {
   const router = useRouter();
   const { data: merchant, resolved } = useRequireAuth<Merchant>({
@@ -81,6 +108,15 @@ export default function NewPaymentPage() {
     return () => clearTimeout(timer);
   }, [amount, currency, description]);
 
+  // Restore any in-progress draft saved before a session-expiry redirect.
+  useEffect(() => {
+    const draft = readDraft();
+    if (!draft) return;
+    setAmount(draft.amount);
+    setCurrency(draft.currency);
+    setDescription(draft.description);
+  }, []);
+
   async function handleSubmit(e: React.FormEvent<HTMLFormElement>) {
     e.preventDefault();
     const amountRaw = amount.trim();
@@ -115,7 +151,10 @@ export default function NewPaymentPage() {
       });
       if (!result.ok) {
         if (result.status === 401) {
-          router.push("/login");
+          // Preserve the in-progress form so nothing is lost across re-login.
+          writeDraft({ amount, currency, description });
+          setStatus("Your session has expired — please log in again. Your draft has been saved.");
+          router.push("/login?returnTo=%2Fnew");
           return;
         }
         const bodyMessage = (result.body as { message?: unknown } | null)?.message;
@@ -234,27 +273,14 @@ export default function NewPaymentPage() {
                 className="amount-input"
                 type="text"
                 inputMode="decimal"
-                placeholder="0.00"
+                placeholder={"0." + "0".repeat(CURRENCY_DECIMALS[currency])}
                 autoFocus
                 value={amount}
                 onChange={(e) => setAmount(e.target.value)}
                 aria-invalid={amountInvalid}
                 aria-describedby={amountInvalid ? "form-status" : undefined}
               />
-            </div>
-            <div className="currency-toggle">
-              {(["XLM", "USDC", "EURC"] as Currency[]).map((c) => (
-                <button
-                  key={c}
-                  type="button"
-                  className={`ctoggle${currency === c ? " active" : ""}`}
-                  aria-pressed={currency === c}
-                  onClick={() => setCurrency(c)}
-                >
-                  {c}
-                </button>
-              ))}
-            </div>
+        
 
             <div className="field">
               <label htmlFor="desc">What&apos;s it for?</label>
@@ -282,7 +308,7 @@ export default function NewPaymentPage() {
             <h1>Link ready</h1>
             <p className="sub">Share this link to get paid.</p>
             <div className="link-box">
-              <input type="text" readOnly value={linkUrl} onFocus={(e) => e.target.select()} />
+              <input type="text" readOnly value={linkUrl} onFocus={(e) => e.target.select()} aria-label="Payment link" />
               <button className="btn" type="button" onClick={handleCopy}>
                 {copyLabel}
               </button>
@@ -290,14 +316,26 @@ export default function NewPaymentPage() {
             <p className="visually-hidden" role="status" aria-live="polite">
               {copyAnnouncement}
             </p>
+            <div className="actions">
+              <button
+                type="button"
+                className="primary"
+                onClick={() => window.open(linkUrl, "_blank", "noopener,noreferrer")}
+              >
+                Open checkout
+              </button>
+              <button type="button" className="secondary" onClick={handleAnother}>
+                Create another
+              </button>
+            </div>
             {status && (
               <p className="status" role="alert">
                 {status}
               </p>
             )}
-            <button className="btn secondary" type="button" onClick={handleAnother}>
-              Create another
-            </button>
+            <Link className="secondary" href="/links">
+              View my payments
+            </Link>
           </div>
         )}
       </div>

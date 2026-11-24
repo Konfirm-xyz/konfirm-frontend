@@ -7,7 +7,6 @@ import { useRequireAuth } from "@/lib/useAuth";
 import { reportError } from "@/lib/report-error";
 import { useBeforeUnload } from "@/lib/use-before-unload";
 
-const HORIZON_URL = "https://horizon-testnet.stellar.org";
 type Currency = "XLM" | "USDC";
 type View = "form" | "progress" | "success";
 
@@ -25,13 +24,30 @@ const STATUS_COPY: Record<string, [string, string]> = {
   on_hold: ["Your cash-out is on hold…", "The partner may need more information."],
 };
 
+// Curated, user-actionable validation codes whose backend `message` is safe
+// to surface verbatim. Anything else falls back to a generic message so we
+// never leak raw backend text (see #41) while still showing specific,
+// self-correctable errors like amount-out-of-range (see #95).
+const SAFE_ERROR_CODES = new Set([
+  "amount_below_minimum",
+  "amount_above_maximum",
+  "amount_out_of_range",
+  "invalid_amount",
+  "amount_limit_exceeded",
+]);
+
 function friendlyMessage(err: unknown): string {
+  const code = (err as { code?: unknown })?.code;
   const msg = String((err as Error)?.message || err || "");
-  if (msg.toLowerCase().includes("freighter") || msg.toLowerCase().includes("wallet")) {
+  const lower = msg.toLowerCase();
+  if (lower.includes("freighter") || lower.includes("wallet")) {
     return "We couldn't connect to your wallet. Make sure Freighter is installed and unlocked, then try again.";
   }
-  if (msg.toLowerCase().includes("declined") || msg.toLowerCase().includes("rejected")) {
+  if (lower.includes("declined") || lower.includes("rejected")) {
     return "You'll need to approve the signature in your wallet to continue.";
+  }
+  if (typeof code === "string" && SAFE_ERROR_CODES.has(code) && msg) {
+    return msg;
   }
   return "Something didn't go through with the cash-out partner. Please try again.";
 }
@@ -113,7 +129,7 @@ export default function CashoutPage() {
     if (cancelled.current) return;
     const prep = await prepRes.json();
     if (cancelled.current) return;
-    if (!prepRes.ok) throw new Error(prep.message || "could not prepare the transfer");
+    if (!prepRes.ok) throw Object.assign(new Error(prep.message || "could not prepare the transfer"), { code: prep.code });
 
     if (!merchantAddress.current) throw new Error("no Stellar address on file");
     showProgress("Approve the transfer in your wallet…");
@@ -126,17 +142,18 @@ export default function CashoutPage() {
     if (signed.error) throw new Error(signed.error);
 
     showProgress("Sending your cash-out…");
-    const submitRes = await fetch(`${HORIZON_URL}/transactions`, {
+    const submitRes = await fetch(`${API_BASE}/withdrawals/submit-tx`, {
       method: "POST",
-      headers: { "Content-Type": "application/x-www-form-urlencoded" },
-      body: `tx=${encodeURIComponent(signed.signedTxXdr)}`,
+      credentials: "include",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ xdr: signed.signedTxXdr }),
     });
     if (cancelled.current) return;
     const submitResult = await submitRes.json();
     if (cancelled.current) return;
     if (!submitRes.ok) {
       const codes = submitResult.extras?.result_codes;
-      throw new Error(codes ? JSON.stringify(codes) : submitResult.title || "submission failed");
+      throw new Error(codes ? JSON.stringify(codes) : submitResult.title || submitResult.message || "submission failed");
     }
   }
 
@@ -147,7 +164,7 @@ export default function CashoutPage() {
       const txn = await res.json().catch(() => ({}));
       if (cancelled.current) return;
       if (!res.ok) {
-        showFormError(friendlyMessage(new Error(txn.message)));
+        showFormError(friendlyMessage(Object.assign(new Error(txn.message), { code: txn.code })));
         return;
       }
 
@@ -198,127 +215,134 @@ export default function CashoutPage() {
       if (cancelled.current) return;
       const challenge = await challengeRes.json();
       if (cancelled.current) return;
-      if (!challengeRes.ok) throw new Error(challenge.message || "could not reach the cash-out partner");
+      if (!challengeRes.ok) throw Object.assign(new Error(challenge.message || "could not reach the cash-out partner"), { code: challenge.code });
 
       if (!merchantAddress.current) throw new Error("no Stellar address on file");
       showProgress("Approve the sign-in in your wallet…");
-      const signedChallenge = await freighterApi.signTransaction(challenge.transaction, {
+      signingInFlight.current = true;
+      const signed = await freighterApi.signTransaction(challenge.xdr, {
         networkPassphrase: challenge.network_passphrase,
         address: merchantAddress.current,
       });
+      signingInFlight.current = false;
       if (cancelled.current) return;
-      if (signedChallenge.error) throw new Error(signedChallenge.error);
+      if (signed.error) throw new Error(signed.error);
 
-      const tokenRes = await fetch(`${API_BASE}/withdrawals/token`, {
-        method: "POST",
-        credentials: "include",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ transaction: signedChallenge.signedTxXdr }),
-      });
-      if (cancelled.current) return;
-      const tokenBody = await tokenRes.json();
-      if (cancelled.current) return;
-      if (!tokenRes.ok) throw new Error(tokenBody.message || "the cash-out partner rejected that signature");
-
-      showProgress("Opening the cash-out form…");
+      showProgress("Starting your cash-out…");
       const startRes = await fetch(`${API_BASE}/withdrawals/start`, {
         method: "POST",
         credentials: "include",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ currency, token: tokenBody.token }),
+        body: JSON.stringify({ currency, signed_challenge: signed.signedTxXdr }),
       });
       if (cancelled.current) return;
-      const startBody = await startRes.json();
+      const start = await startRes.json();
       if (cancelled.current) return;
-      if (!startRes.ok) throw new Error(startBody.message || "could not start a cash-out");
+      if (!startRes.ok) throw Object.assign(new Error(start.message || "could not start the cash-out"), { code: start.code });
 
-      signingInFlight.current = false;
-      inFlight.current = false;
-      window.open(startBody.url, "konfirm-cashout", "width=460,height=700");
-      pollStatus(tokenBody.token, startBody.id);
+      await pollStatus(start.token, start.id);
     } catch (err) {
       if (cancelled.current) return;
+      signingInFlight.current = false;
       reportError(err, { tags: { flow: "cashout", stage: "start" } });
       showFormError(friendlyMessage(err));
+    } finally {
+      signingInFlight.current = false;
+      if (!cancelled.current) setStarting(false);
     }
-  }
-
-  function handleAnother() {
-    inFlight.current = false;
-    setView("form");
-    setStarting(false);
-    setStatus("");
   }
 
   if (!resolved) return null;
 
   return (
-    <div className="page-center">
-      <div className="card">
-        <div className="top">
-          <div className="brand">
-            <span className="mark">✓</span> Konfirm
+    <main className="mx-auto max-w-xl px-6 py-16">
+      <h1 className="text-2xl font-semibold">Cash out</h1>
+      <p className="mt-2 text-sm text-slate-600">
+        Convert your balance to {currency} and send it to your wallet.
+      </p>
+
+      {view === "form" && (
+        <div className="mt-8 space-y-6">
+          <div>
+            <label className="block text-sm font-medium text-slate-700" htmlFor="currency">Currency</label>
+            <select
+              id="currency"
+              className="mt-2 w-full rounded-md border border-slate-300 px-3 py-2 text-sm"
+              value={currency}
+              onChange={(e) => setCurrency(e.target.value as Currency)}
+              disabled={starting}
+            >
+              <option value="XLM">XLM</option>
+              <option value="USDC">USDC</option>
+            </select>
+            <p className="mt-2 text-xs text-slate-500">
+              EURC cash-out isn&apos;t supported yet — our testnet cash-out partner only settles XLM and USDC.
+              If you&apos;ve accepted EURC payments, hold them for now; EURC cash-out will be added once the
+              partner supports it. See the{" "}
+              <Link href="/docs" className="underline">
+                docs
+              </Link>{" "}
+              for details.
+            </p>
           </div>
-          <Link className="back" href="/activity">
-            ← Activity
+
+          <div>
+            <label className="block text-sm font-medium text-slate-700">Amount</label>
+            <p className="mt-2 text-xs text-slate-500">
+              Cash-outs are limited to 1–10 units per request on testnet.
+            </p>
+          </div>
+
+          {(status || missingAddressStatus) && (
+            <p className="rounded bg-red-50 px-3 py-2 text-sm text-red-700">
+              {status || missingAddressStatus}
+            </p>
+          )}
+
+          {freighterAvailable === false && (
+            <p className="rounded bg-amber-50 px-3 py-2 text-sm text-amber-700">
+              Freighter isn't available in this browser. Install it to continue.
+            </p>
+          )}
+
+          <button
+            type="button"
+            onClick={handleStart}
+            disabled={starting || !merchant?.stellar_base_address || freighterAvailable === false}
+            className="w-full rounded-md bg-slate-900 px-4 py-2 text-sm font-medium text-white disabled:opacity-50"
+          >
+            {starting ? "Starting…" : "Start cash-out"}
+          </button>
+        </div>
+      )}
+
+      {view === "progress" && (
+        <div className="mt-6 space-y-2">
+          <p className="text-sm font-medium text-slate-900">{stage}</p>
+          {hint && <p className="text-sm text-slate-600">{hint}</p>}
+        </div>
+      )}
+
+      {view === "success" && (
+        <div className="mt-8 space-y-4">
+          <p className="text-sm font-medium text-green-700">Cash-out complete.</p>
+          <button
+            type="button"
+            onClick={() => {
+              setView("form");
+              setStatus("");
+              setStarting(false);
+              inFlight.current = false;
+            }}
+            className="rounded-md border border-slate-300 px-4 py-2 text-sm font-medium text-slate-700 hover:bg-slate-50"
+          >
+            Start another
+          </button>
+          <Link className="text-sm underline" href="/activity">
+            View your activity
           </Link>
         </div>
-
-        {view === "form" && (
-          <div>
-            <h1>Cash out</h1>
-            <p className="sub">Move funds from your Stellar wallet to a bank account through a Stellar anchor partner.</p>
-
-            <div className="currency-toggle">
-              {(["XLM", "USDC"] as Currency[]).map((c) => (
-                <button
-                  key={c}
-                  type="button"
-                  className={`ctoggle${currency === c ? " active" : ""}`}
-                  aria-pressed={currency === c}
-                  onClick={() => setCurrency(c)}
-                >
-                  {c}
-                </button>
-              ))}
-            </div>
-            <div className="limit-note">This test partner accepts between 1–10 units per cash-out.</div>
-
-            {freighterAvailable === false ? (
-              <div className="status error">
-                Cash-out requires the Freighter browser extension. Open this page in Chrome or Firefox on desktop with{" "}
-                <a href="https://freighter.app" target="_blank" rel="noopener noreferrer">Freighter installed</a>.
-              </div>
-            ) : (
-              <>
-                <button type="button" className="primary" disabled={starting} onClick={handleStart}>
-                  {starting ? "Starting…" : "Connect wallet & start cash-out"}
-                </button>
-                <div className={`status${status || missingAddressStatus ? " error" : ""}`}>{status || missingAddressStatus}</div>
-              </>
-            )}
-          </div>
-        )}
-
-        {view === "progress" && (
-          <div className="progress">
-            <div className="spin" />
-            <div className="stage">{stage}</div>
-            <div className="hint">{hint}</div>
-          </div>
-        )}
-
-        {view === "success" && (
-          <div className="success-box">
-            <div className="tick">✓</div>
-            <h1 className="success-title">Cash-out complete</h1>
-            <div className="success-detail">Your funds are on their way to your bank.</div>
-            <button type="button" className="secondary" onClick={handleAnother}>
-              Start another cash-out
-            </button>
-          </div>
-        )}
-      </div>
-    </div>
+      )}
+    </main>
   );
 }

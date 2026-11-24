@@ -1,11 +1,30 @@
 "use client";
 
 import { use, useEffect, useRef, useState } from "react";
+import { useRouter } from "next/navigation";
 import freighterApi from "@stellar/freighter-api";
 import qrcode from "qrcode-generator";
 import { API_BASE } from "@/lib/api";
 import { useCheckoutMessages, useLocale } from "@/lib/i18n";
 import { friendlyMessage, randomMuxedId } from "@/lib/checkout";
+import { reportError } from "@/lib/report-error";
+import { createClient } from "@/lib/supabase/client";
+import { formatCurrency } from "@/lib/format";
+import type { PaymentLink } from "@/lib/types";
+
+interface CheckoutClientProps {
+  linkId: string;
+  initialLinkData: PaymentLink | null;
+}
+
+import { use, useEffect, useRef, useState } from "react";
+import freighterApi from "@stellar/freighter-api";
+import qrcode from "qrcode-generator";
+import { API_BASE } from "@/lib/api";
+import { useCheckoutMessages, useLocale } from "@/lib/i18n";
+import { friendlyMessage, randomMuxedId } from "@/lib/checkout";
+import { explorerTxUrl } from "@/lib/stellar-explorer";
+import { reportError } from "@/lib/report-error";
 
 const HORIZON_URL = "https://horizon-testnet.stellar.org";
 
@@ -23,7 +42,6 @@ interface ConfirmedPayment {
   muxed_id: string;
 }
 
-
 export default function CheckoutClient({ params }: { params: Promise<{ linkId: string }> }) {
   const { linkId } = use(params);
   const t = useCheckoutMessages();
@@ -34,7 +52,8 @@ export default function CheckoutClient({ params }: { params: Promise<{ linkId: s
     document.documentElement.lang = locale;
   }, [locale]);
 
-  const [loadingText, setLoadingText] = useState("Loading…");
+  const [loadingText, setLoadingText] = useState(t("loading"));
+  const [loadingIsError, setLoadingIsError] = useState(false);
   const [linkData, setLinkData] = useState<LinkData | null>(null);
   const [showQr, setShowQr] = useState(true);
   const [qrSvg, setQrSvg] = useState("");
@@ -117,7 +136,7 @@ export default function CheckoutClient({ params }: { params: Promise<{ linkId: s
       setQrSvg(qr.createSvgTag(5, 8));
       setQrUri(body.uri);
     } catch (err) {
-      console.error("[konfirm checkout] QR setup failed", err);
+      reportError("checkout: QR setup failed", err);
       setShowQr(false);
     }
   }
@@ -195,4 +214,205 @@ export default function CheckoutClient({ params }: { params: Promise<{ linkId: s
     }).catch(() => {
       s
 
-/* … truncated 5435 chars — edit only what you need near the top … */
+  useEffect(() => {
+    if (initialLinkData) return;
+
+    let cancelled = false;
+    // Persisted so a page refresh resumes polling the same session instead
+    // of reserving a new, unrelated one — losing track of a payment that
+    // may already be in flight (scanned, signed, or even submitted) against
+    // the old muxed_id.
+    const storageKey = `konfirm:muxed_id:${linkId}`;
+
+    async function fetchLink() {
+      const { data, error: fetchError } = await supabase
+        .from("payment_links")
+        .select("*")
+        .eq("id", linkId)
+        .single();
+
+      if (cancelled) return;
+      if (!res.ok) {
+        // Distinguish dead-link reasons (not found / expired / inactive /
+        // blocked) rather than collapsing every non-2xx into one generic
+        // "not found" — the payer deserves to know this isn't a transient
+        // glitch they should retry.
+        const body: { message?: string } = await res.json().catch(() => ({}));
+        reportError("checkout: link unavailable", body.message || `status ${res.status}`);
+        setLoadingText(body.message ? friendlyMessage(new Error(body.message)) : t("notFound"));
+        setLoadingIsError(true);
+        return;
+      }
+      setLoading(false);
+      const data: LinkData = await res.json();
+      setLinkData(data);
+      try {
+        const existing = sessionStorage.getItem(storageKey);
+        if (existing) {
+          sharedMuxedId.current = existing;
+        } else {
+          sharedMuxedId.current = await reserveSessionWithRetry();
+          sessionStorage.setItem(storageKey, sharedMuxedId.current);
+        }
+      } catch (err) {
+        console.error("[konfirm checkout] could not reserve a payment session", err);
+        setStatusMsg(friendlyMessage(err), true);
+        setShowQr(false);
+        return;
+      }
+      // QR and mobile wallets pay the link amount. A platform fee on this
+      // link is owed by the merchant and settled from their dashboard
+      // (docs/design/qr-fee-collection.md, Option B), so it isn't added here.
+      await setupQrPayment(sharedMuxedId.current);
+      // Long, silent watch — up to 10 minutes — for the QR/mobile-wallet
+      // path, which has no "just submitted" moment to bound the wait
+      // against.
+      pollForConfirmation(linkId, sharedMuxedId.current, 300, 2000).then((result) => {
+        if (result) showSuccess(result);
+      });
+    }
+
+    fetchLink();
+
+    return () => {
+      cancelled = true;
+    };
+  }, [linkId, initialLinkData, supabase]);
+
+  async function handlePay() {
+    if (!linkData) return;
+    setPaying(true);
+    setError(null);
+
+    const { error: payError } = await supabase.functions.invoke("process-payment", {
+      body: { linkId: linkData.id },
+    });
+
+    if (payError) {
+      setError("Payment failed. Please try again.");
+      setPaying(false);
+      return;
+    }
+
+    router.push(`/pay/${linkId}/success`);
+  }
+
+  if (loading) {
+    return (
+      <div className="flex min-h-screen items-center justify-center">
+        <p className="text-sm text-muted-foreground">Loading payment link…</p>
+      </div>
+    );
+  }
+
+  if (error && !linkData) {
+    return (
+      <div className="flex min-h-screen items-center justify-center">
+        <p className="text-sm text-destructive">{error}</p>
+      </div>
+    );
+  }
+
+  if (!linkData) return null;
+
+  return (
+    <div className="page-center">
+      <title>{`${linkData?.merchant_name ?? "Konfirm"} · Konfirm`}</title>
+      <div className="card">
+        <div className="brand" style={{ marginBottom: 24 }}>
+          <span className="mark">✓</span> Konfirm
+        </div>
+
+        {!linkData && !confirmed && (
+          <div
+            className={`status${loadingIsError ? " error" : ""}`}
+            role={loadingIsError ? "alert" : "status"}
+            aria-live={loadingIsError ? "assertive" : "polite"}
+          >
+            {loadingText}
+          </div>
+        )}
+
+        {linkData && !confirmed && (
+          <div>
+            <div className="merchant-label">{linkData.merchant_name}</div>
+            <div className="desc-label">{linkData.description || "Payment"}</div>
+            {feeUsdc > 0 ? (
+              <>
+                <div className="amount-display">{totalDisplay}</div>
+                <div className="sub" style={{ marginTop: -8, marginBottom: 16 }}>
+                  {amountDisplay} + {feeDisplay} fee
+                </div>
+              </>
+            ) : (
+              <div className="amount-display">{amountDisplay}</div>
+            )}
+
+            {showQr && (
+              <>
+                <div className="qr-section">
+                  <div className="qr-label">{t("scanQr")}</div>
+                  {feeUsdc > 0 && (
+                    <div className="sub" style={{ marginBottom: 8 }}>
+                      {t("feePaidByMerchant", { amount: amountDisplay })}
+                    </div>
+                  )}
+                  <a
+                    className="qr-box"
+                    href={qrUri}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    aria-label="Open this payment request in your Stellar wallet"
+                    dangerouslySetInnerHTML={{ __html: qrSvg }}
+                  />
+                  <div className="qr-hint">{t("qrHint")}</div>
+                </div>
+                <div className="divider">{t("orDivider")}</div>
+              </>
+            )}
+
+            {freighterAvailable === false ? (
+              <div className="status error">
+                {t("freighterUnavailable")}
+              </div>
+            ) : (
+              <>
+                <button type="button" className="primary" disabled={connecting} onClick={handleConnect}>
+                  {t("connectFreighter")}
+                </button>
+                <div className={`status${statusIsError ? " error" : ""}`}>{status}</div>
+              </>
+            )}
+          </div>
+        )}
+
+        {error && <p className="mt-4 text-sm text-destructive">{error}</p>}
+
+        <button
+          type="button"
+          onClick={handlePay}
+          disabled={paying}
+          className="mt-6 w-full rounded-md bg-primary px-4 py-2 text-primary-foreground disabled:opacity-50"
+        >
+          {paying ? "Processing…" : "Pay now"}
+        </button>
+
+        {confirmed && (
+          <div className="success-box">
+            <div className="tick">✓</div>
+            <div className="success-title">{t("successTitle")}</div>
+            <div className="success-detail">{t("successDetail")}</div>
+            <a
+              className="txlink"
+              href={explorerTxUrl(confirmed.tx_hash)}
+              target="_blank"
+              rel="noopener noreferrer"
+            >
+              View on stellar.expert →
+            </a>
+          </div>
+        )}
+      </div>
+    </div>
+  );
+}

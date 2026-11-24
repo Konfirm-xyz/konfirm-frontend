@@ -1,3 +1,14 @@
+"use client";
+
+import { useEffect } from "react";
+import Link from "next/link";
+
+export default function AdminError({
+  error,
+  retry,
+}: {
+  error: Error & { digest?: string };
+  retry: () => void;
 'use client';
 
 import Link from 'next/link';
@@ -21,6 +32,15 @@ export default function AdminError({
   }, [error]);
 
   return (
+    <div className="empty" role="alert">
+      <h1>Admin error</h1>
+      <p>Something went wrong loading this admin page.</p>
+      <button type="button" onClick={() => retry()}>
+        Try again
+      </button>
+      <p>
+        <Link href="/admin">Back to Overview</Link>
+      </p>
     <div className="flex flex-col items-center justify-center gap-4 p-8 text-center">
       <h1 className="text-2xl font-semibold">Admin error</h1>
       <p className="max-w-md text-sm text-muted-foreground">

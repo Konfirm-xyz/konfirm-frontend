@@ -30,6 +30,13 @@ BACKEND_URL=https://api.yourdomain.com npm run dev
 
 See the env-var table in README.md for all supported variables.
 
+## Architecture boundaries
+
+These are hard rules, not style preferences:
+
+- **Never call a Soroban contract or Horizon directly from the frontend.** All backend calls go through the same-origin BFF proxy (`/api/backend/*`, set up in `next.config.ts`). `src/lib/api.ts` exports `API_BASE = "/api/backend"` — use it rather than constructing the backend's real URL yourself.
+- **Never attest, mark-paid, or otherwise claim a payment succeeded based on frontend state alone.** Only the backend reconciler (via Horizon) is the source of truth for payment correctness — a page can show an optimistic "waiting" state, but the confirmed/paid status always comes from a backend response, not from a client-side signature or timer.
+
 ## Auth systems — there are two, keep them separate
 
 This app has **two completely separate authentication systems** that share no cookies, no tokens, and no code paths:
@@ -64,14 +71,30 @@ The lesson from issue #1: XLM is stored as `NUMERIC(18,7)` and validated to 7 de
 
 Run the `> 0` guard against the raw number the user typed. Do not let formatting happen first and then check — formatting can turn a valid input into an invalid one (`0.001` → `"0.00"` after `toFixed(2)`).
 
+## Code style and design
+
+- Lint via `npm run lint` (`eslint-config-next`, flat config in `eslint.config.mjs`). Fix lint errors rather than suppressing them.
+- No CSS framework — styling is one hand-written token stylesheet. Colors, radii, and fonts come from the shared tokens in `src/app/tokens.css` (newer pages) or `globals.css` (everything else, now resolving to the same palette). Don't hardcode a hex/oklch color or a one-off radius in a component; add or reuse a token instead. See `design.md` for the full system (palette, motion, which pages have had a structural "Hallmark" pass vs. palette-only).
+- Status copy shown to customers must stay free of internal terms ("session," "reconciler," "screening," etc.), and raw backend errors should go through a page's `friendlyMessage()` allowlist rather than straight to the UI.
+
 ## Running tests
 
 ```bash
-npm test
+npm test          # unit tests (vitest), one-shot
+npm run test:watch
+npm run test:e2e   # Playwright
 ```
 
-## Opening a pull request
+There's no E2E coverage for flows that require a real wallet prompt or the anchor's interactive popup (Freighter signing, SEP-24 popup) — those are exercised by hand against a running `konfirm-backend`, not scripted.
 
+## Before opening a pull request
+
+- Run `npm run lint` and `npm run build` locally — `next build` includes the full TypeScript check (a standalone `tsc --noEmit` fails on a clean checkout, since App Router's generated route types don't exist until a build has run once). CI (`.github/workflows/ci.yml`) runs the same two steps plus `npm audit --audit-level=high`.
+- If the change has a visible effect in the browser, verify it live (`npm run dev`) before calling it done — don't rely on lint/build/tests alone to confirm a UI fix actually works.
 - Reference the issue number(s) in the PR title or body.
 - Keep each PR focused on one concern if possible.
 - For CSS changes that affect touch targets, note the before/after measured height.
+
+## Reporting security issues
+
+Don't open a public issue for a vulnerability (key handling, contract authorization, auth/session handling, payment reconciliation correctness) — use GitHub's private vulnerability reporting instead. See `SECURITY.md`.
