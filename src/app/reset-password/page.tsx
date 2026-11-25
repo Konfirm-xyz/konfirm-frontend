@@ -13,15 +13,18 @@ function ResetPasswordForm() {
   const [confirm, setConfirm] = useState("");
   const [submitting, setSubmitting] = useState(false);
   const [status, setStatus] = useState("");
+  const [success, setSuccess] = useState(false);
   const [mismatch, setMismatch] = useState(false);
 
   function checkMismatch() {
     if (confirm && password !== confirm) {
       setMismatch(true);
       setStatus("The two passwords don't match.");
+      setSuccess(false);
     } else {
       setMismatch(false);
       setStatus("");
+      setSuccess(false);
     }
   }
 
@@ -30,14 +33,18 @@ function ResetPasswordForm() {
     if (password !== confirm) {
       setMismatch(true);
       setStatus("The two passwords don't match.");
+      setSuccess(false);
       return;
     }
     setMismatch(false);
     setSubmitting(true);
     setStatus("");
+    setSuccess(false);
     try {
       await apiPost("/auth/reset-password", { token, password });
-      router.push("/login");
+      setSuccess(true);
+      setStatus("Password updated — redirecting to log in…");
+      setTimeout(() => router.push("/login"), 1500);
     } catch (err) {
       setStatus(err instanceof Error ? err.message : "Could not reset your password. Please try again.");
       setSubmitting(false);
@@ -88,7 +95,7 @@ function ResetPasswordForm() {
       </button>
       <div
         id="form-status"
-        className={`status${status ? " error" : ""}`}
+        className={`status${status && !success ? " error" : ""}`}
         role="alert"
         aria-live={status ? "assertive" : "polite"}
       >

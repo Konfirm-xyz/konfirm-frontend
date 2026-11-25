@@ -4,7 +4,7 @@
 
 ### Prerequisites
 
-- Node.js 18+
+- Node.js — use the version pinned in `.nvmrc` (same as CI)
 - A running instance of [konfirm-backend](https://github.com/Konfirm-xyz/konfirm-backend) (local or deployed)
 
 ### Install and run
@@ -22,7 +22,7 @@ Set `BACKEND_URL` to the base URL of the API you want to use:
 
 ```bash
 # Local backend (default if unset falls back to the value in next.config.ts)
-BACKEND_URL=http://localhost:4000 npm run dev
+BACKEND_URL=http://localhost:4001 npm run dev
 
 # Deployed backend
 BACKEND_URL=https://api.yourdomain.com npm run dev
